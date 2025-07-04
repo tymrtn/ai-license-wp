@@ -9,8 +9,8 @@
  * Requires PHP: 7.4
  * Author:      Copyright.sh
  * Author URI:  https://copyright.sh
- * License:     GPL-2.0-or-later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * License:     GPL-3.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-3.0.html
  * Text Domain: csh-ai-licensing
  * Domain Path: /languages
  *
