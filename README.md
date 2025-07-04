@@ -44,17 +44,25 @@ composer require copyrightsh/ai-licensing-wp
 1. Navigate to **Settings → AI License**.
 2. Choose whether to *Allow* or *Deny* AI usage.
 3. Optionally set:
-   * **Pay To** – defaults to your domain (e.g. `example.com`). Payments accrue under that domain until you sign in to Copyright.sh and link a PayPal, Venmo, Stripe Link or USDC wallet (coming soon).
-   * **Price** – suggested price in USD.
-   * **Scope** – `snippet` (≤100 tokens) or `full` (whole article).
+   * **Price** – suggested price in USD (default **0.10** per 1 K tokens).
+   * **Scope** – leave blank (default) to allow both snippets and full content. Choose `snippet` (≤100 tokens ≈ 400 chars) to restrict previews, useful behind paywalls.
+   * **Pay To** – defaults to your domain (e.g. `example.com`). Payments accrue under that domain until you claim the domain and link PayPal, Venmo, Stripe Link or USDC wallet (coming soon).
 4. Save changes.
 
 Per-post overrides are available in the post sidebar under **AI License Override**.
 
 ### Resulting Mark-up
 
+Default settings (`Allow`, blank scope, price 0.10) output:
+
 ```html
-<meta name="ai-license" content="allow; payto:creator@paypal; price:0.0025; scope:snippet">
+<meta name="ai-license" content="allow; price:0.10; payto:example.com">
+```
+
+This permits both search engines and AI systems to show snippets *and* access full text at $0.10 per 1 K tokens. Most usage is inference-time referencing; model-training in the US is typically covered by *fair use*, whereas the EU requires explicit permission. We therefore recommend leaving the default for ad-supported blogs/news sites. If you run a strict pay-wall choose `snippet` and apply post-level overrides where needed.
+
+```html
+<meta name="ai-license" content="allow; scope:snippet; price:0.0025; payto:creator@paypal">
 ```
 
 The generated `/ai-license.txt` will contain:
@@ -62,7 +70,7 @@ The generated `/ai-license.txt` will contain:
 ```text
 # ai-license.txt – AI usage policy
 User-agent: *
-License: allow; payto:creator@paypal; price:0.0025; scope:snippet
+License: allow; scope:snippet; price:0.0025; payto:creator@paypal
 ```
 
 ---
@@ -71,8 +79,8 @@ License: allow; payto:creator@paypal; price:0.0025; scope:snippet
 
 | | |
 |---|---|
-| **1. Global settings** | *(placeholder – add in `/assets/` before publishing)* |
-| **2. Post override meta-box** | *(placeholder – add in `/assets/` before publishing)* |
+| **1. Global settings** | ![Settings](assets/screenshot-1.png) |
+| **2. Post override meta-box** | ![Post override](assets/screenshot-2.png) |
 
 > Screenshots are optional but recommended for the WordPress.org repository. Add them to an `assets/` folder (not committed in the build ZIP).
 
