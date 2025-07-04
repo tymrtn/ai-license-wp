@@ -168,7 +168,7 @@ class CSH_AI_Licensing_Plugin {
 			'allow_deny' => ( 'deny' === ( $input['allow_deny'] ?? 'allow' ) ) ? 'deny' : 'allow',
 			'payto'      => sanitize_text_field( $input['payto'] ?? '' ),
 			'price'      => sanitize_text_field( $input['price'] ?? '' ),
-			'scope'      => in_array( $input['scope'] ?? '', $this->scopes, true ) ? $input['scope'] : 'full',
+			'scope'      => in_array( $input['scope'] ?? '', $this->scopes, true ) ? $input['scope'] : '',
 		];
 		return $sanitized;
 	}
@@ -232,6 +232,12 @@ JS;
 		wp_register_script( 'csh-ai-settings-stub', '' , [], false, true );
 		wp_enqueue_script( 'csh-ai-settings-stub' );
 		wp_add_inline_script( 'csh-ai-settings-stub', $script );
+
+		// Simple inline CSS to keep radio buttons tidy on small screens.
+		$css = '.csh-ai-radio label{display:inline-flex;align-items:center;margin-right:1em;margin-bottom:0.5em;}';
+		wp_register_style( 'csh-ai-settings-style', false );
+		wp_enqueue_style( 'csh-ai-settings-style' );
+		wp_add_inline_style( 'csh-ai-settings-style', $css );
 	}
 
 	/**
@@ -245,6 +251,11 @@ JS;
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'AI Licensing Settings', 'csh-ai-licensing' ); ?></h1>
+			<p class="description" style="max-width:600px;">
+				<?php
+				echo wp_kses_post( __( 'Default settings <strong>allow</strong> AI usage of both snippets <em>and</em> full content for <strong>$0.10</strong> per 1&nbsp;K tokens. This covers the vast majority of inference-time look-ups. Training data usage is typically fair-use in the US, but not in the EU. If your site is pay-walled, choose “Snippet” and override critical posts individually.', 'csh-ai-licensing' ) );
+				?>
+			</p>
 			<form method="post" action="options.php">
 				<?php
 				settings_fields( 'csh_ai_license_settings_group' );
@@ -261,8 +272,10 @@ JS;
 		$settings = get_option( self::OPTION_NAME, [] );
 		$value    = $settings['allow_deny'] ?? 'allow';
 		?>
-		<label><input type="radio" name="<?php echo esc_attr( self::OPTION_NAME . '[allow_deny]' ); ?>" value="allow" <?php checked( 'allow', $value ); ?> /> <?php esc_html_e( 'Allow', 'csh-ai-licensing' ); ?></label><br/>
-		<label><input type="radio" name="<?php echo esc_attr( self::OPTION_NAME . '[allow_deny]' ); ?>" value="deny" <?php checked( 'deny', $value ); ?> /> <?php esc_html_e( 'Deny', 'csh-ai-licensing' ); ?></label>
+		<div class="csh-ai-radio">
+			<label><input type="radio" name="<?php echo esc_attr( self::OPTION_NAME . '[allow_deny]' ); ?>" value="allow" <?php checked( 'allow', $value ); ?> /> <?php esc_html_e( 'Allow', 'csh-ai-licensing' ); ?></label>
+			<label><input type="radio" name="<?php echo esc_attr( self::OPTION_NAME . '[allow_deny]' ); ?>" value="deny" <?php checked( 'deny', $value ); ?> /> <?php esc_html_e( 'Deny', 'csh-ai-licensing' ); ?></label>
+		</div>
 		<p id="csh_ai_policy_message" class="description"></p>
 		<?php
 	}
@@ -278,17 +291,19 @@ JS;
 			esc_attr( $value ),
 			esc_attr( $placeholder )
 		);
-		printf(
-			'<p class="description">%s</p>',
-			esc_html__( 'Payments will be accrued under this domain until you sign in to Copyright.sh and associate it with your PayPal, Venmo, Stripe Link or USDC wallet (coming soon).', 'csh-ai-licensing' )
+		$desc = sprintf(
+			/* translators: %s: dashboard url */
+			__( 'Payments will accrue under this domain until you sign in to <a href="%s" target="_blank" rel="noopener">Copyright.sh&nbsp;Dashboard</a> and link your payout method (PayPal, Venmo, Stripe Link – USDC coming soon).', 'csh-ai-licensing' ),
+			'https://dashboard.copyright.sh'
 		);
+		echo wp_kses_post( '<p class="description">' . $desc . '</p>' );
 	}
 
 	public function field_price() {
 		$settings = get_option( self::OPTION_NAME, [] );
-		$value    = $settings['price'] ?? '';
+		$value    = $settings['price'] ?? '0.10';
 		printf(
-			'<input type="text" class="small-text" name="%1$s[price]" value="%2$s" placeholder="0.0025" />',
+			'<input type="text" class="small-text" name="%1$s[price]" value="%2$s" placeholder="0.10" />',
 			esc_attr( self::OPTION_NAME ),
 			esc_attr( $value )
 		);
@@ -296,13 +311,24 @@ JS;
 
 	public function field_scope() {
 		$settings = get_option( self::OPTION_NAME, [] );
-		$selected = $settings['scope'] ?? 'full';
+		$selected = $settings['scope'] ?? '';
 		?>
 		<select name="<?php echo esc_attr( self::OPTION_NAME . '[scope]' ); ?>">
+			<option value="" <?php selected( $selected, '' ); ?>><?php esc_html_e( 'Any (default)', 'csh-ai-licensing' ); ?></option>
 			<?php foreach ( $this->scopes as $scope ) : ?>
 				<option value="<?php echo esc_attr( $scope ); ?>" <?php selected( $selected, $scope ); ?>><?php echo esc_html( ucfirst( $scope ) ); ?></option>
 			<?php endforeach; ?>
 		</select>
+		<p class="description">
+			<?php
+			echo wp_kses_post(
+				__(
+					'Leave blank (recommended) to permit both snippets and full content at the chosen price. Select “Snippet” to cap previews at 100 tokens (~400 chars) — useful behind pay-walls.',
+					'csh-ai-licensing'
+				)
+			);
+			?>
+		</p>
 		<?php
 	}
 
@@ -340,7 +366,7 @@ JS;
 		$allow_deny = $value['allow_deny'] ?? 'allow';
 		$payto      = $value['payto'] ?? '';
 		$price      = $value['price'] ?? '';
-		$scope      = $value['scope'] ?? 'full';
+		$scope      = $value['scope'] ?? '';
 		?>
 		<p><label><input type="checkbox" name="csh_ai_override" id="csh_ai_override" <?php checked( $override ); ?> /> <?php esc_html_e( 'Override global policy', 'csh-ai-licensing' ); ?></label></p>
 		<div id="csh_ai_fields" style="<?php echo $override ? '' : 'display:none;'; ?>">
@@ -354,6 +380,7 @@ JS;
 				<input type="text" name="csh_ai_price" value="<?php echo esc_attr( $price ); ?>" class="widefat" /></label></p>
 			<p><label><?php esc_html_e( 'Scope', 'csh-ai-licensing' ); ?><br/>
 				<select name="csh_ai_scope" class="widefat">
+					<option value="" <?php selected( '', $scope ); ?>><?php esc_html_e( 'Any (default)', 'csh-ai-licensing' ); ?></option>
 					<?php foreach ( $this->scopes as $scope_opt ) : ?>
 						<option value="<?php echo esc_attr( $scope_opt ); ?>" <?php selected( $scope_opt, $scope ); ?>><?php echo esc_html( ucfirst( $scope_opt ) ); ?></option>
 					<?php endforeach; ?>
@@ -389,7 +416,7 @@ JS;
 			'allow_deny' => ( isset( $_POST['csh_ai_allow_deny'] ) && 'deny' === $_POST['csh_ai_allow_deny'] ) ? 'deny' : 'allow',
 			'payto'      => sanitize_text_field( $_POST['csh_ai_payto'] ?? '' ),
 			'price'      => sanitize_text_field( $_POST['csh_ai_price'] ?? '' ),
-			'scope'      => in_array( $_POST['csh_ai_scope'] ?? '', $this->scopes, true ) ? $_POST['csh_ai_scope'] : 'full',
+			'scope'      => in_array( $_POST['csh_ai_scope'] ?? '', $this->scopes, true ) ? $_POST['csh_ai_scope'] : '',
 		];
 
 		update_post_meta( $post_id, self::META_KEY, $data );
@@ -410,7 +437,14 @@ JS;
 		}
 		$content_attr = $settings['allow_deny'];
 		$extras        = [];
-		// Build optional parameters using **colon** separator to match grammar
+
+		// Order: scope → price → payto.
+		if ( ! empty( $settings['scope'] ) ) {
+			$extras[] = 'scope:' . $settings['scope'];
+		}
+		if ( ! empty( $settings['price'] ) ) {
+			$extras[] = 'price:' . $settings['price'];
+		}
 		if ( ! empty( $settings['payto'] ) ) {
 			$extras[] = 'payto:' . $settings['payto'];
 		} else {
@@ -419,12 +453,7 @@ JS;
 				$extras[] = 'payto:' . $domain;
 			}
 		}
-		if ( ! empty( $settings['price'] ) ) {
-			$extras[] = 'price:' . $settings['price'];
-		}
-		if ( ! empty( $settings['scope'] ) ) {
-			$extras[] = 'scope:' . $settings['scope'];
-		}
+
 		if ( $extras ) {
 			$content_attr .= '; ' . implode( '; ', $extras );
 		}
@@ -448,8 +477,8 @@ JS;
 		return wp_parse_args( $settings, [
 			'allow_deny' => 'allow',
 			'payto'      => '',
-			'price'      => '',
-			'scope'      => 'full',
+			'price'      => '0.10',
+			'scope'      => '',
 		] );
 	}
 
@@ -489,6 +518,14 @@ JS;
 		$license_parts = [];
 		$action        = $settings['allow_deny'] ?? 'deny';
 		$license_parts[] = $action;
+
+		// Order: scope → price → payto.
+		if ( ! empty( $settings['scope'] ) ) {
+			$license_parts[] = 'scope:' . $settings['scope'];
+		}
+		if ( ! empty( $settings['price'] ) ) {
+			$license_parts[] = 'price:' . $settings['price'];
+		}
 		if ( ! empty( $settings['payto'] ) ) {
 			$license_parts[] = 'payto:' . $settings['payto'];
 		} else {
@@ -496,12 +533,6 @@ JS;
 			if ( $domain ) {
 				$license_parts[] = 'payto:' . $domain;
 			}
-		}
-		if ( ! empty( $settings['price'] ) ) {
-			$license_parts[] = 'price:' . $settings['price'];
-		}
-		if ( ! empty( $settings['scope'] ) ) {
-			$license_parts[] = 'scope:' . $settings['scope'];
 		}
 
 		$lines[] = 'License: ' . implode( '; ', $license_parts );
