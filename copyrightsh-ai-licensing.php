@@ -3,7 +3,7 @@
  * Plugin Name: Copyright.sh – AI Licensing
  * Plugin URI:  https://copyright.sh/
  * Description: Declare, customise and serve AI licence metadata (<meta name="ai-license"> tag and /ai-license.txt) for WordPress sites.
- * Version:     0.1.0
+ * Version:     0.1.1
  * Requires at least: 6.2
  * Tested up to: 6.5
  * Requires PHP: 7.4
@@ -293,7 +293,7 @@ JS;
 		);
 		$desc = sprintf(
 			/* translators: %s: dashboard url */
-			__( 'Payments will accrue under this domain until you sign in to <a href="%s" target="_blank" rel="noopener">Copyright.sh&nbsp;Dashboard</a> and link your payout method (PayPal, Venmo, Stripe Link – USDC coming soon).', 'csh-ai-licensing' ),
+			__( 'Payments will accrue under this domain until you sign in to <a href="%s" target="_blank" rel="noopener">Copyright.sh&nbsp;Dashboard</a>, link your payout method (PayPal, Venmo, Stripe Link – USDC coming soon).', 'csh-ai-licensing' ),
 			'https://dashboard.copyright.sh'
 		);
 		echo wp_kses_post( '<p class="description">' . $desc . '</p>' );
@@ -349,13 +349,16 @@ JS;
 	}
 
 	public function register_meta_box() {
-		add_meta_box(
-			'csh_ai_license_meta',
-			__( 'AI License Override', 'csh-ai-licensing' ),
-			[ $this, 'render_meta_box' ],
-			'post',
-			'side'
-		);
+		$types = [ 'post', 'page' ];
+		foreach ( $types as $type ) {
+			add_meta_box(
+				'csh_ai_license_meta',
+				__( 'AI License Override', 'csh-ai-licensing' ),
+				[ $this, 'render_meta_box' ],
+				$type,
+				'side'
+			);
+		}
 	}
 
 	public function render_meta_box( $post ) {
