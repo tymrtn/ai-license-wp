@@ -1,6 +1,6 @@
 # Copyright.sh — AI Licensing for WordPress
 
-**Version&nbsp;0.1.0** • GPL-3.0-or-later  
+**Version&nbsp;0.1.1** • GPL-3.0-or-later  
 <https://copyright.sh>
 
 Easily declare, customise and serve a *machine-readable* AI-usage licence for your WordPress site.
@@ -103,6 +103,13 @@ Pull requests are welcome! Please follow the WordPress Coding Standards (`compos
 ---
 
 ## Changelog
+
+### 0.1.1 – 2025-07-04
+
+* Default onboarding improvements: allow + any scope + $0.10.
+* UI helper texts and radio button styling.
+* Meta tag & ai-license.txt field order fixed.
+* Added screenshots placeholders and dashboard links.
 
 ### 0.1.0 – 2025-07-02
 
