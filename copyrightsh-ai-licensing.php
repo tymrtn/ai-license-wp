@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: AI License Manager by Copyright.sh
+ * Plugin Name: Copyright.sh – AI License
  * Plugin URI:  https://copyright.sh/
  * Description: Declare, customise and serve AI licence metadata (<meta name="ai-license"> tag and /ai-license.txt) for WordPress sites.
- * Version:     0.1.1
+ * Version:     1.0.1
  * Requires at least: 6.2
  * Tested up to: 6.5
  * Requires PHP: 7.4
@@ -11,8 +11,7 @@
  * Author URI:  https://copyright.sh
  * License:     GPL-3.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-3.0.html
- * Text Domain: csh-ai-license-manager
- * Domain Path: /languages
+ * Text Domain: copyright-sh-ai-license
  *
  * @package CSH_AI_Licensing
  */
@@ -115,7 +114,7 @@ class CSH_AI_Licensing_Plugin {
 
 		add_settings_section(
 			'csh_ai_license_main',
-			__( 'AI Licensing Global Policy', 'csh-ai-licensing' ),
+__( 'AI License Global Policy', 'copyright-sh-ai-license' ),
 			'__return_false',
 			'csh-ai-license'
 		);
@@ -123,7 +122,7 @@ class CSH_AI_Licensing_Plugin {
 		// Allow / Deny toggle.
 		add_settings_field(
 			'allow_deny',
-			__( 'Default Policy', 'csh-ai-licensing' ),
+__( 'Default Policy', 'copyright-sh-ai-license' ),
 			[ $this, 'field_allow_deny' ],
 			'csh-ai-license',
 			'csh_ai_license_main'
@@ -132,7 +131,7 @@ class CSH_AI_Licensing_Plugin {
 		// Scope (listed first).
 		add_settings_field(
 			'scope',
-			__( 'Scope', 'csh-ai-licensing' ),
+__( 'Scope', 'copyright-sh-ai-license' ),
 			[ $this, 'field_scope' ],
 			'csh-ai-license',
 			'csh_ai_license_main'
@@ -141,7 +140,7 @@ class CSH_AI_Licensing_Plugin {
 		// Payto.
 		add_settings_field(
 			'payto',
-			__( 'Pay To', 'csh-ai-licensing' ),
+__( 'Pay To', 'copyright-sh-ai-license' ),
 			[ $this, 'field_payto' ],
 			'csh-ai-license',
 			'csh_ai_license_main'
@@ -150,7 +149,7 @@ class CSH_AI_Licensing_Plugin {
 		// Price.
 		add_settings_field(
 			'price',
-			__( 'Price (USD)', 'csh-ai-licensing' ),
+__( 'Price (USD)', 'copyright-sh-ai-license' ),
 			[ $this, 'field_price' ],
 			'csh-ai-license',
 			'csh_ai_license_main'
@@ -178,8 +177,8 @@ class CSH_AI_Licensing_Plugin {
 	 */
 	public function add_settings_page() {
 		add_options_page(
-			__( 'AI License', 'csh-ai-licensing' ),
-			__( 'AI License', 'csh-ai-licensing' ),
+			__( 'AI License', 'copyright-sh-ai-license' ),
+			__( 'AI License', 'copyright-sh-ai-license' ),
 			'manage_options',
 			'csh-ai-license',
 			[ $this, 'render_settings_page' ]
@@ -197,45 +196,42 @@ class CSH_AI_Licensing_Plugin {
 			return;
 		}
 
-		$script = <<<'JS'
-(() => {
-	function toggleAiFields() {
-	    const denyChecked = document.querySelector('input[name="csh_ai_license_global_settings[allow_deny]"][value="deny"]')?.checked;
-	    const disable = !!denyChecked;
-	    // Inputs
-	    const payto   = document.querySelector('input[name="csh_ai_license_global_settings[payto]"]');
-	    const price   = document.querySelector('input[name="csh_ai_license_global_settings[price]"]');
-	    const scope   = document.querySelector('select[name="csh_ai_license_global_settings[scope]"]');
+		$script = "(() => {\n" .
+			"\tfunction toggleAiFields() {\n" .
+			"\t    const denyChecked = document.querySelector(\'input[name=\"csh_ai_license_global_settings[allow_deny]\"][value=\"deny\"]\')?.checked;\n" .
+			"\t    const disable = !!denyChecked;\n" .
+			"\t    const payto   = document.querySelector(\'input[name=\"csh_ai_license_global_settings[payto]\"]\');\n" .
+			"\t    const price   = document.querySelector(\'input[name=\"csh_ai_license_global_settings[price]\"]\');\n" .
+			"\t    const scope   = document.querySelector(\'select[name=\"csh_ai_license_global_settings[scope]\"]\');\n" .
+			"\n" .
+			"\t    [payto, price, scope].forEach(el => { if (el) el.disabled = disable; });\n" .
+			"\n" .
+			"\t    const msg = document.getElementById(\'csh_ai_policy_message\');\n" .
+			"\t    if (msg) {\n" .
+			"\t        if (disable) {\n" .
+			"\t            msg.textContent = 'All AI usage will be denied. The plugin will emit ai-license.txt, robots.txt rules and meta tags blocking crawlers.';\n" .
+			"\t        } else {\n" .
+			"\t            msg.textContent = 'Configure scope, pricing and payment details to allow specific AI usage.';\n" .
+			"\t        }\n" .
+			"\t    }\n" .
+			"\t}\n" .
+			"\n" .
+			"\twindow.addEventListener('DOMContentLoaded', () => {\n" .
+			"\t    const radios = document.querySelectorAll(\'input[name=\"csh_ai_license_global_settings[allow_deny]\"]\');\n" .
+			"\t    radios.forEach(r => r.addEventListener('change', toggleAiFields));\n" .
+			"\t    toggleAiFields();\n" .
+			"\t});\n" .
+			"})();";
 
-	    [payto, price, scope].forEach(el => { if (el) el.disabled = disable; });
-
-	    const msg = document.getElementById('csh_ai_policy_message');
-	    if (msg) {
-	        if (disable) {
-	            msg.textContent = 'All AI usage will be denied. The plugin will emit ai-license.txt, robots.txt rules and meta tags blocking crawlers.';
-	        } else {
-	            msg.textContent = 'Configure scope, pricing and payment details to allow specific AI usage.';
-	        }
-	    }
-	}
-
-	// Initial run + onchange listeners.
-	window.addEventListener('DOMContentLoaded', () => {
-	    const radios = document.querySelectorAll('input[name="csh_ai_license_global_settings[allow_deny]"]');
-	    radios.forEach(r => r.addEventListener('change', toggleAiFields));
-	    toggleAiFields();
-	});
-})();
-JS;
 
 		// Register an empty stub script to safely attach inline JS without external file.
-		wp_register_script( 'csh-ai-settings-stub', '' , [], false, true );
+		wp_register_script( 'csh-ai-settings-stub', '' , [], '1.0.0', true );
 		wp_enqueue_script( 'csh-ai-settings-stub' );
 		wp_add_inline_script( 'csh-ai-settings-stub', $script );
 
 		// Simple inline CSS to keep radio buttons tidy on small screens.
 		$css = '.csh-ai-radio label{display:inline-flex;align-items:center;margin-right:1em;margin-bottom:0.5em;}';
-		wp_register_style( 'csh-ai-settings-style', false );
+		wp_register_style( 'csh-ai-settings-style', false, [], '1.0.0' );
 		wp_enqueue_style( 'csh-ai-settings-style' );
 		wp_add_inline_style( 'csh-ai-settings-style', $css );
 	}
@@ -250,10 +246,10 @@ JS;
 		$settings = get_option( self::OPTION_NAME, [] );
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'AI Licensing Settings', 'csh-ai-licensing' ); ?></h1>
+			<h1><?php esc_html_e( 'AI License Settings', 'copyright-sh-ai-license' ); ?></h1>
 			<p class="description" style="max-width:600px;">
 				<?php
-				echo wp_kses_post( __( 'Default settings <strong>allow</strong> AI usage of both snippets <em>and</em> full content for <strong>$0.10</strong> per 1&nbsp;K tokens. This covers the vast majority of inference-time look-ups. Training data usage is typically fair-use in the US, but not in the EU. If your site is pay-walled, choose “Snippet” and override critical posts individually.', 'csh-ai-licensing' ) );
+				echo wp_kses_post( __( 'Default settings <strong>allow</strong> AI usage of both snippets <em>and</em> full content for <strong>$0.10</strong> per 1&nbsp;K tokens. This covers the vast majority of inference-time look-ups. Training data usage is typically fair-use in the US, but not in the EU. If your site is pay-walled, choose “Snippet” and override critical posts individually.', 'copyright-sh-ai-license' ) );
 				?>
 			</p>
 			<form method="post" action="options.php">
@@ -273,8 +269,8 @@ JS;
 		$value    = $settings['allow_deny'] ?? 'allow';
 		?>
 		<div class="csh-ai-radio">
-			<label><input type="radio" name="<?php echo esc_attr( self::OPTION_NAME . '[allow_deny]' ); ?>" value="allow" <?php checked( 'allow', $value ); ?> /> <?php esc_html_e( 'Allow', 'csh-ai-licensing' ); ?></label>
-			<label><input type="radio" name="<?php echo esc_attr( self::OPTION_NAME . '[allow_deny]' ); ?>" value="deny" <?php checked( 'deny', $value ); ?> /> <?php esc_html_e( 'Deny', 'csh-ai-licensing' ); ?></label>
+			<label><input type="radio" name="<?php echo esc_attr( self::OPTION_NAME . '[allow_deny]' ); ?>" value="allow" <?php checked( 'allow', $value ); ?> /> <?php esc_html_e( 'Allow', 'copyright-sh-ai-license' ); ?></label>
+			<label><input type="radio" name="<?php echo esc_attr( self::OPTION_NAME . '[allow_deny]' ); ?>" value="deny" <?php checked( 'deny', $value ); ?> /> <?php esc_html_e( 'Deny', 'copyright-sh-ai-license' ); ?></label>
 		</div>
 		<p id="csh_ai_policy_message" class="description"></p>
 		<?php
@@ -293,7 +289,7 @@ JS;
 		);
 		$desc = sprintf(
 			/* translators: %s: dashboard url */
-			__( 'Payments will accrue under this domain until you sign in to <a href="%s" target="_blank" rel="noopener">Copyright.sh&nbsp;Dashboard</a>, link your payout method (PayPal, Venmo, Stripe Link – USDC coming soon).', 'csh-ai-licensing' ),
+			__( 'Payments will accrue under this domain until you sign in to <a href="%s" target="_blank" rel="noopener">Copyright.sh&nbsp;Dashboard</a>, link your payout method (PayPal, Venmo, Stripe Link – USDC coming soon).', 'copyright-sh-ai-license' ),
 			'https://dashboard.copyright.sh'
 		);
 		echo wp_kses_post( '<p class="description">' . $desc . '</p>' );
@@ -314,7 +310,7 @@ JS;
 		$selected = $settings['scope'] ?? '';
 		?>
 		<select name="<?php echo esc_attr( self::OPTION_NAME . '[scope]' ); ?>">
-			<option value="" <?php selected( $selected, '' ); ?>><?php esc_html_e( 'Any (default)', 'csh-ai-licensing' ); ?></option>
+			<option value="" <?php selected( $selected, '' ); ?>><?php esc_html_e( 'Any (default)', 'copyright-sh-ai-license' ); ?></option>
 			<?php foreach ( $this->scopes as $scope ) : ?>
 				<option value="<?php echo esc_attr( $scope ); ?>" <?php selected( $selected, $scope ); ?>><?php echo esc_html( ucfirst( $scope ) ); ?></option>
 			<?php endforeach; ?>
@@ -324,7 +320,7 @@ JS;
 			echo wp_kses_post(
 				__(
 					'Leave blank (recommended) to permit both snippets and full content at the chosen price. Select “Snippet” to cap previews at 100 tokens (~400 chars) — useful behind pay-walls.',
-					'csh-ai-licensing'
+					'copyright-sh-ai-license'
 				)
 			);
 			?>
@@ -353,7 +349,7 @@ JS;
 		foreach ( $types as $type ) {
 			add_meta_box(
 				'csh_ai_license_meta',
-				__( 'AI License Override', 'csh-ai-licensing' ),
+				__( 'AI License Override', 'copyright-sh-ai-license' ),
 				[ $this, 'render_meta_box' ],
 				$type,
 				'side'
@@ -371,19 +367,19 @@ JS;
 		$price      = $value['price'] ?? '';
 		$scope      = $value['scope'] ?? '';
 		?>
-		<p><label><input type="checkbox" name="csh_ai_override" id="csh_ai_override" <?php checked( $override ); ?> /> <?php esc_html_e( 'Override global policy', 'csh-ai-licensing' ); ?></label></p>
+		<p><label><input type="checkbox" name="csh_ai_override" id="csh_ai_override" <?php checked( $override ); ?> /> <?php esc_html_e( 'Override global policy', 'copyright-sh-ai-license' ); ?></label></p>
 		<div id="csh_ai_fields" style="<?php echo $override ? '' : 'display:none;'; ?>">
-			<p><strong><?php esc_html_e( 'Allow / Deny', 'csh-ai-licensing' ); ?></strong><br/>
-				<label><input type="radio" name="csh_ai_allow_deny" value="allow" <?php checked( 'allow', $allow_deny ); ?>/> <?php esc_html_e( 'Allow', 'csh-ai-licensing' ); ?></label>
-				<label><input type="radio" name="csh_ai_allow_deny" value="deny" <?php checked( 'deny', $allow_deny ); ?>/> <?php esc_html_e( 'Deny', 'csh-ai-licensing' ); ?></label>
+			<p><strong><?php esc_html_e( 'Allow / Deny', 'copyright-sh-ai-license' ); ?></strong><br/>
+				<label><input type="radio" name="csh_ai_allow_deny" value="allow" <?php checked( 'allow', $allow_deny ); ?>/> <?php esc_html_e( 'Allow', 'copyright-sh-ai-license' ); ?></label>
+				<label><input type="radio" name="csh_ai_allow_deny" value="deny" <?php checked( 'deny', $allow_deny ); ?>/> <?php esc_html_e( 'Deny', 'copyright-sh-ai-license' ); ?></label>
 			</p>
-			<p><label><?php esc_html_e( 'Pay To', 'csh-ai-licensing' ); ?><br/>
+			<p><label><?php esc_html_e( 'Pay To', 'copyright-sh-ai-license' ); ?><br/>
 				<input type="text" name="csh_ai_payto" value="<?php echo esc_attr( $payto ); ?>" class="widefat" /></label></p>
-			<p><label><?php esc_html_e( 'Price', 'csh-ai-licensing' ); ?><br/>
+			<p><label><?php esc_html_e( 'Price', 'copyright-sh-ai-license' ); ?><br/>
 				<input type="text" name="csh_ai_price" value="<?php echo esc_attr( $price ); ?>" class="widefat" /></label></p>
-			<p><label><?php esc_html_e( 'Scope', 'csh-ai-licensing' ); ?><br/>
+			<p><label><?php esc_html_e( 'Scope', 'copyright-sh-ai-license' ); ?><br/>
 				<select name="csh_ai_scope" class="widefat">
-					<option value="" <?php selected( '', $scope ); ?>><?php esc_html_e( 'Any (default)', 'csh-ai-licensing' ); ?></option>
+					<option value="" <?php selected( '', $scope ); ?>><?php esc_html_e( 'Any (default)', 'copyright-sh-ai-license' ); ?></option>
 					<?php foreach ( $this->scopes as $scope_opt ) : ?>
 						<option value="<?php echo esc_attr( $scope_opt ); ?>" <?php selected( $scope_opt, $scope ); ?>><?php echo esc_html( ucfirst( $scope_opt ) ); ?></option>
 					<?php endforeach; ?>
@@ -415,11 +411,12 @@ JS;
 			return;
 		}
 
-		$data = [
+		$raw_scope = sanitize_text_field( wp_unslash( $_POST['csh_ai_scope'] ?? '' ) );
+		$data      = [
 			'allow_deny' => ( isset( $_POST['csh_ai_allow_deny'] ) && 'deny' === $_POST['csh_ai_allow_deny'] ) ? 'deny' : 'allow',
-			'payto'      => sanitize_text_field( $_POST['csh_ai_payto'] ?? '' ),
-			'price'      => sanitize_text_field( $_POST['csh_ai_price'] ?? '' ),
-			'scope'      => in_array( $_POST['csh_ai_scope'] ?? '', $this->scopes, true ) ? $_POST['csh_ai_scope'] : '',
+			'payto'      => sanitize_text_field( wp_unslash( $_POST['csh_ai_payto'] ?? '' ) ),
+			'price'      => sanitize_text_field( wp_unslash( $_POST['csh_ai_price'] ?? '' ) ),
+			'scope'      => in_array( $raw_scope, $this->scopes, true ) ? $raw_scope : '',
 		];
 
 		update_post_meta( $post_id, self::META_KEY, $data );
@@ -500,7 +497,7 @@ JS;
 		}
 		nocache_headers();
 		header( 'Content-Type: text/plain; charset=utf-8' );
-		echo $this->build_ai_txt();
+		echo esc_html( $this->build_ai_txt() );
 		exit;
 	}
 
