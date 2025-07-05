@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Copyright.sh – AI Licensing
+ * Plugin Name: AI License Manager by Copyright.sh
  * Plugin URI:  https://copyright.sh/
  * Description: Declare, customise and serve AI licence metadata (<meta name="ai-license"> tag and /ai-license.txt) for WordPress sites.
  * Version:     0.1.1
@@ -11,7 +11,7 @@
  * Author URI:  https://copyright.sh
  * License:     GPL-3.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-3.0.html
- * Text Domain: csh-ai-licensing
+ * Text Domain: csh-ai-license-manager
  * Domain Path: /languages
  *
  * @package CSH_AI_Licensing
