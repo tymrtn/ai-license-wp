@@ -4,7 +4,7 @@ Tags:              ai, license, snippets, content
 Requires at least: 6.2
 Tested up to:      6.8
 Requires PHP:      7.4
-Stable tag:        1.1.0
+Stable tag:        1.2.0
 License:           GPLv3 or later
 License URI:       https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -22,6 +22,12 @@ Generates `<meta name="ai-license">` tags and a domain-wide `ai-license.txt` end
 
 == Changelog ==
 
+= 1.2.0 =
+* Major: Updated to License Grammar v1.5 (distribution: private/public)
+* Change: Renamed "visibility" parameter to "distribution" per spec
+* Improvement: Updated all UI labels to use "distribution" terminology
+* Compatibility: Aligned with Copyright.sh License Grammar Specification v1.5
+
 = 1.1.0 =
 * Major: Updated to License Grammar (visibility: private/public)
 * Fix: Proper JavaScript and CSS enqueuing using WordPress standards
@@ -36,4 +42,4 @@ Generates `<meta name="ai-license">` tags and a domain-wide `ai-license.txt` end
 
 == Upgrade Notice ==
 
-1.1.0 — Major update with License Grammar v1.4 and WordPress store compliance fixes. Recommended upgrade.
+1.2.0 — Critical update to License Grammar v1.5 with distribution parameter. Required for compatibility with latest Copyright.sh platform.
