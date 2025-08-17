@@ -3,7 +3,7 @@
  * Plugin Name: Copyright.sh – AI License
  * Plugin URI:  https://copyright.sh/
  * Description: Declare, customise and serve AI licence metadata (<meta name="ai-license"> tag and /ai-license.txt) for WordPress sites.
- * Version:     1.1.0
+ * Version:     1.2.0
  * Requires at least: 6.2
  * Tested up to: 6.5
  * Requires PHP: 7.4
@@ -43,13 +43,13 @@ class CSH_AI_Licensing_Plugin {
 	private static $instance = null;
 
 	/**
-	 * Allowed visibility levels (License Grammar v1.4).
+	 * Allowed distribution levels (License Grammar v1.5).
 	 *
 	 * @var string[]
 	 */
-    // Allowed visibility levels per v1.4 grammar specification.
-    // Dual-axis system: visibility (private/public) replaces old scope system.
-    private $visibility_levels = [ 'private', 'public' ];
+    // Allowed distribution levels per v1.5 grammar specification.
+    // Dual-axis system: distribution (private/public) replaces old scope system.
+    private $distribution_levels = [ 'private', 'public' ];
 
 	/**
 	 * Get singleton.
@@ -128,11 +128,11 @@ __( 'Default Policy', 'copyright-sh-ai-license' ),
 			'csh_ai_license_main'
 		);
 
-		// Visibility (listed first).
+		// Distribution (listed first).
 		add_settings_field(
-			'visibility',
-__( 'Visibility', 'copyright-sh-ai-license' ),
-			[ $this, 'field_visibility' ],
+			'distribution',
+__( 'Distribution', 'copyright-sh-ai-license' ),
+			[ $this, 'field_distribution' ],
 			'csh-ai-license',
 			'csh_ai_license_main'
 		);
@@ -167,7 +167,7 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 			'allow_deny' => ( 'deny' === ( $input['allow_deny'] ?? 'allow' ) ) ? 'deny' : 'allow',
 			'payto'      => sanitize_text_field( $input['payto'] ?? '' ),
 			'price'      => sanitize_text_field( $input['price'] ?? '' ),
-			'visibility' => in_array( $input['visibility'] ?? '', $this->visibility_levels, true ) ? $input['visibility'] : '',
+			'distribution' => in_array( $input['distribution'] ?? '', $this->distribution_levels, true ) ? $input['distribution'] : '',
 		];
 		return $sanitized;
 	}
@@ -212,16 +212,16 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 			"\t    const disable = !!denyChecked;\n" .
 			"\t    const payto      = document.querySelector(\'input[name=\"csh_ai_license_global_settings[payto]\"]\');\n" .
 			"\t    const price      = document.querySelector(\'input[name=\"csh_ai_license_global_settings[price]\"]\');\n" .
-			"\t    const visibility = document.querySelector(\'select[name=\"csh_ai_license_global_settings[visibility]\"]\');\n" .
+			"\t    const distribution = document.querySelector(\'select[name=\"csh_ai_license_global_settings[distribution]\"]\');\n" .
 			"\n" .
-			"\t    [payto, price, visibility].forEach(el => { if (el) el.disabled = disable; });\n" .
+			"\t    [payto, price, distribution].forEach(el => { if (el) el.disabled = disable; });\n" .
 			"\n" .
 			"\t    const msg = document.getElementById(\'csh_ai_policy_message\');\n" .
 			"\t    if (msg) {\n" .
 			"\t        if (disable) {\n" .
 			"\t            msg.textContent = 'All AI usage will be denied. The plugin will emit ai-license.txt, robots.txt rules and meta tags blocking crawlers.';\n" .
 			"\t        } else {\n" .
-			"\t            msg.textContent = 'Configure visibility, pricing and payment details to allow specific AI usage.';\n" .
+			"\t            msg.textContent = 'Configure distribution, pricing and payment details to allow specific AI usage.';\n" .
 			"\t        }\n" .
 			"\t    }\n" .
 			"\t}\n" .
@@ -333,14 +333,14 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 		);
 	}
 
-	public function field_visibility() {
+	public function field_distribution() {
 		$settings = get_option( self::OPTION_NAME, [] );
-		$selected = $settings['visibility'] ?? '';
+		$selected = $settings['distribution'] ?? '';
 		?>
-		<select name="<?php echo esc_attr( self::OPTION_NAME . '[visibility]' ); ?>">
+		<select name="<?php echo esc_attr( self::OPTION_NAME . '[distribution]' ); ?>">
 			<option value="" <?php selected( $selected, '' ); ?>><?php esc_html_e( 'Public (default)', 'copyright-sh-ai-license' ); ?></option>
-			<?php foreach ( $this->visibility_levels as $visibility ) : ?>
-				<option value="<?php echo esc_attr( $visibility ); ?>" <?php selected( $selected, $visibility ); ?>><?php echo esc_html( ucfirst( $visibility ) ); ?></option>
+			<?php foreach ( $this->distribution_levels as $distribution ) : ?>
+				<option value="<?php echo esc_attr( $distribution ); ?>" <?php selected( $selected, $distribution ); ?>><?php echo esc_html( ucfirst( $distribution ) ); ?></option>
 			<?php endforeach; ?>
 		</select>
 		<p class="description">
@@ -393,7 +393,7 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 		$allow_deny = $value['allow_deny'] ?? 'allow';
 		$payto      = $value['payto'] ?? '';
 		$price      = $value['price'] ?? '';
-		$visibility = $value['visibility'] ?? '';
+		$distribution = $value['distribution'] ?? '';
 		?>
 		<p><label><input type="checkbox" name="csh_ai_override" id="csh_ai_override" <?php checked( $override ); ?> /> <?php esc_html_e( 'Override global policy', 'copyright-sh-ai-license' ); ?></label></p>
 		<div id="csh_ai_fields" style="<?php echo $override ? '' : 'display:none;'; ?>">
@@ -405,11 +405,11 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 				<input type="text" name="csh_ai_payto" value="<?php echo esc_attr( $payto ); ?>" class="widefat" /></label></p>
 			<p><label><?php esc_html_e( 'Price', 'copyright-sh-ai-license' ); ?><br/>
 				<input type="text" name="csh_ai_price" value="<?php echo esc_attr( $price ); ?>" class="widefat" /></label></p>
-			<p><label><?php esc_html_e( 'Visibility', 'copyright-sh-ai-license' ); ?><br/>
-				<select name="csh_ai_visibility" class="widefat">
-					<option value="" <?php selected( '', $visibility ); ?>><?php esc_html_e( 'Public (default)', 'copyright-sh-ai-license' ); ?></option>
-					<?php foreach ( $this->visibility_levels as $visibility_opt ) : ?>
-						<option value="<?php echo esc_attr( $visibility_opt ); ?>" <?php selected( $visibility_opt, $visibility ); ?>><?php echo esc_html( ucfirst( $visibility_opt ) ); ?></option>
+			<p><label><?php esc_html_e( 'Distribution', 'copyright-sh-ai-license' ); ?><br/>
+				<select name="csh_ai_distribution" class="widefat">
+					<option value="" <?php selected( '', $distribution ); ?>><?php esc_html_e( 'Public (default)', 'copyright-sh-ai-license' ); ?></option>
+					<?php foreach ( $this->distribution_levels as $distribution_opt ) : ?>
+						<option value="<?php echo esc_attr( $distribution_opt ); ?>" <?php selected( $distribution_opt, $distribution ); ?>><?php echo esc_html( ucfirst( $distribution_opt ) ); ?></option>
 					<?php endforeach; ?>
 				</select></label></p>
 		</div>
@@ -434,12 +434,12 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 			return;
 		}
 
-		$raw_visibility = sanitize_text_field( wp_unslash( $_POST['csh_ai_visibility'] ?? '' ) );
+		$raw_distribution = sanitize_text_field( wp_unslash( $_POST['csh_ai_distribution'] ?? '' ) );
 		$data           = [
 			'allow_deny' => ( isset( $_POST['csh_ai_allow_deny'] ) && 'deny' === $_POST['csh_ai_allow_deny'] ) ? 'deny' : 'allow',
 			'payto'      => sanitize_text_field( wp_unslash( $_POST['csh_ai_payto'] ?? '' ) ),
 			'price'      => sanitize_text_field( wp_unslash( $_POST['csh_ai_price'] ?? '' ) ),
-			'visibility' => in_array( $raw_visibility, $this->visibility_levels, true ) ? $raw_visibility : '',
+			'distribution' => in_array( $raw_distribution, $this->distribution_levels, true ) ? $raw_distribution : '',
 		];
 
 		update_post_meta( $post_id, self::META_KEY, $data );
@@ -461,9 +461,9 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 		$content_attr = $settings['allow_deny'];
 		$extras       = [];
 
-		// License Grammar v1.4: Order: visibility → price → payto.
-		if ( ! empty( $settings['visibility'] ) ) {
-			$extras[] = 'visibility:' . $settings['visibility'];
+		// License Grammar v1.5: Order: distribution → price → payto.
+		if ( ! empty( $settings['distribution'] ) ) {
+			$extras[] = 'distribution:' . $settings['distribution'];
 		}
 		if ( ! empty( $settings['price'] ) ) {
 			$extras[] = 'price:' . $settings['price'];
@@ -501,7 +501,7 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 			'allow_deny' => 'allow',
 			'payto'      => '',
 			'price'      => '0.10',
-			'visibility' => '',
+			'distribution' => '',
 		] );
 	}
 
@@ -537,14 +537,14 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 			'User-agent: *',
 		];
 
-		// Build consolidated license string – matches meta tag grammar v1.4.
+		// Build consolidated license string – matches meta tag grammar v1.5.
 		$license_parts = [];
 		$action        = $settings['allow_deny'] ?? 'deny';
 		$license_parts[] = $action;
 
-		// License Grammar v1.4: Order: visibility → price → payto.
-		if ( ! empty( $settings['visibility'] ) ) {
-			$license_parts[] = 'visibility:' . $settings['visibility'];
+		// License Grammar v1.5: Order: distribution → price → payto.
+		if ( ! empty( $settings['distribution'] ) ) {
+			$license_parts[] = 'distribution:' . $settings['distribution'];
 		}
 		if ( ! empty( $settings['price'] ) ) {
 			$license_parts[] = 'price:' . $settings['price'];
