@@ -339,9 +339,7 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 		?>
 		<select name="<?php echo esc_attr( self::OPTION_NAME . '[distribution]' ); ?>">
 			<option value="" <?php selected( $selected, '' ); ?>><?php esc_html_e( 'Public (default)', 'copyright-sh-ai-license' ); ?></option>
-			<?php foreach ( $this->distribution_levels as $distribution ) : ?>
-				<option value="<?php echo esc_attr( $distribution ); ?>" <?php selected( $selected, $distribution ); ?>><?php echo esc_html( ucfirst( $distribution ) ); ?></option>
-			<?php endforeach; ?>
+			<option value="private" <?php selected( $selected, 'private' ); ?>><?php esc_html_e( 'Private', 'copyright-sh-ai-license' ); ?></option>
 		</select>
 		<p class="description">
 			<?php
@@ -408,9 +406,7 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 			<p><label><?php esc_html_e( 'Distribution', 'copyright-sh-ai-license' ); ?><br/>
 				<select name="csh_ai_distribution" class="widefat">
 					<option value="" <?php selected( '', $distribution ); ?>><?php esc_html_e( 'Public (default)', 'copyright-sh-ai-license' ); ?></option>
-					<?php foreach ( $this->distribution_levels as $distribution_opt ) : ?>
-						<option value="<?php echo esc_attr( $distribution_opt ); ?>" <?php selected( $distribution_opt, $distribution ); ?>><?php echo esc_html( ucfirst( $distribution_opt ) ); ?></option>
-					<?php endforeach; ?>
+					<option value="private" <?php selected( 'private', $distribution ); ?>><?php esc_html_e( 'Private', 'copyright-sh-ai-license' ); ?></option>
 				</select></label></p>
 		</div>
 		<?php
