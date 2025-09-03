@@ -4,7 +4,7 @@ Tags:              ai, license, snippets, content
 Requires at least: 6.2
 Tested up to:      6.8
 Requires PHP:      7.4
-Stable tag:        1.2.0
+Stable tag:        1.3.0
 License:           GPLv3 or later
 License URI:       https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -21,6 +21,12 @@ Generates `<meta name="ai-license">` tags and a domain-wide `ai-license.txt` end
 2. Activate.
 
 == Changelog ==
+
+= 1.3.0 =
+* Removed account creation features for WordPress.org compliance
+* Maintained core AI licensing functionality
+* Updated JavaScript and CSS enqueuing to use WordPress standards
+* Simplified settings interface while preserving all licensing features
 
 = 1.2.0 =
 * Major: Updated to License Grammar v1.5 (distribution: private/public)

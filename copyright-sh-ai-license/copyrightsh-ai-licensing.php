@@ -85,11 +85,6 @@ class CSH_AI_Licensing_Plugin {
 		// ai-license.txt rewrite.
 		add_action( 'init', [ $this, 'add_rewrite' ] );
 		add_action( 'template_redirect', [ $this, 'maybe_serve_ai_txt' ] );
-
-		// AJAX handlers for account management
-		add_action( 'wp_ajax_csh_register_account', [ $this, 'ajax_register_account' ] );
-		add_action( 'wp_ajax_csh_check_status', [ $this, 'ajax_check_status' ] );
-		add_action( 'wp_ajax_csh_disconnect_account', [ $this, 'ajax_disconnect_account' ] );
 	}
 
 	/**
@@ -117,17 +112,9 @@ class CSH_AI_Licensing_Plugin {
 	public function register_settings() {
 		register_setting( 'csh_ai_license_settings_group', self::OPTION_NAME, [ $this, 'sanitize_settings' ] );
 
-		// Account section - appears first
-		add_settings_section(
-			'csh_ai_license_account',
-			__( 'Copyright.sh Account', 'copyright-sh-ai-license' ),
-			[ $this, 'render_account_section' ],
-			'csh-ai-license'
-		);
-
 		add_settings_section(
 			'csh_ai_license_main',
-__( 'AI License Global Policy', 'copyright-sh-ai-license' ),
+			__( 'AI License Global Policy', 'copyright-sh-ai-license' ),
 			'__return_false',
 			'csh-ai-license'
 		);
@@ -135,7 +122,7 @@ __( 'AI License Global Policy', 'copyright-sh-ai-license' ),
 		// Allow / Deny toggle.
 		add_settings_field(
 			'allow_deny',
-__( 'Default Policy', 'copyright-sh-ai-license' ),
+			__( 'Default Policy', 'copyright-sh-ai-license' ),
 			[ $this, 'field_allow_deny' ],
 			'csh-ai-license',
 			'csh_ai_license_main'
@@ -144,7 +131,7 @@ __( 'Default Policy', 'copyright-sh-ai-license' ),
 		// Distribution (listed first).
 		add_settings_field(
 			'distribution',
-__( 'Distribution', 'copyright-sh-ai-license' ),
+			__( 'Distribution', 'copyright-sh-ai-license' ),
 			[ $this, 'field_distribution' ],
 			'csh-ai-license',
 			'csh_ai_license_main'
@@ -153,7 +140,7 @@ __( 'Distribution', 'copyright-sh-ai-license' ),
 		// Payto.
 		add_settings_field(
 			'payto',
-__( 'Pay To', 'copyright-sh-ai-license' ),
+			__( 'Pay To', 'copyright-sh-ai-license' ),
 			[ $this, 'field_payto' ],
 			'csh-ai-license',
 			'csh_ai_license_main'
@@ -162,7 +149,7 @@ __( 'Pay To', 'copyright-sh-ai-license' ),
 		// Price.
 		add_settings_field(
 			'price',
-__( 'Price (USD)', 'copyright-sh-ai-license' ),
+			__( 'Price (USD)', 'copyright-sh-ai-license' ),
 			[ $this, 'field_price' ],
 			'csh-ai-license',
 			'csh_ai_license_main'
@@ -219,127 +206,42 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 	 * Enqueue settings page script.
 	 */
 	private function enqueue_settings_script() {
-		// Create nonce for AJAX
-		$ajax_nonce = wp_create_nonce( 'csh_ajax_nonce' );
-		
-		$script = "(() => {\n" .
-			"\tfunction toggleAiFields() {\n" .
-			"\t    const denyChecked = document.querySelector(\'input[name=\"csh_ai_license_global_settings[allow_deny]\"][value=\"deny\"]\')?.checked;\n" .
-			"\t    const disable = !!denyChecked;\n" .
-			"\t    const payto      = document.querySelector(\'input[name=\"csh_ai_license_global_settings[payto]\"]\');\n" .
-			"\t    const price      = document.querySelector(\'input[name=\"csh_ai_license_global_settings[price]\"]\');\n" .
-			"\t    const distribution = document.querySelector(\'select[name=\"csh_ai_license_global_settings[distribution]\"]\');\n" .
-			"\n" .
-			"\t    [payto, price, distribution].forEach(el => { if (el) el.disabled = disable; });\n" .
-			"\n" .
-			"\t    const msg = document.getElementById(\'csh_ai_policy_message\');\n" .
-			"\t    if (msg) {\n" .
-			"\t        if (disable) {\n" .
-			"\t            msg.textContent = 'All AI usage will be denied. The plugin will emit ai-license.txt, robots.txt rules and meta tags blocking crawlers.';\n" .
-			"\t        } else {\n" .
-			"\t            msg.textContent = 'Configure distribution, pricing and payment details to allow specific AI usage.';\n" .
-			"\t        }\n" .
-			"\t    }\n" .
-			"\t}\n" .
-			"\n" .
-			"\twindow.addEventListener('DOMContentLoaded', () => {\n" .
-			"\t    const radios = document.querySelectorAll(\'input[name=\"csh_ai_license_global_settings[allow_deny]\"]\');\n" .
-			"\t    radios.forEach(r => r.addEventListener('change', toggleAiFields));\n" .
-			"\t    toggleAiFields();\n" .
-			"\t    \n" .
-			"\t    // Account management\n" .
-			"\t    const registerBtn = document.getElementById('csh-register');\n" .
-			"\t    const disconnectBtn = document.getElementById('csh-disconnect');\n" .
-			"\t    const emailInput = document.getElementById('csh-email');\n" .
-			"\t    const messageDiv = document.getElementById('csh-account-message');\n" .
-			"\t    \n" .
-			"\t    if (registerBtn) {\n" .
-			"\t        registerBtn.addEventListener('click', async () => {\n" .
-			"\t            const email = emailInput.value.trim();\n" .
-			"\t            if (!email || !email.includes('@')) {\n" .
-			"\t                showMessage('Please enter a valid email address', 'error');\n" .
-			"\t                return;\n" .
-			"\t            }\n" .
-			"\t            \n" .
-			"\t            registerBtn.disabled = true;\n" .
-			"\t            document.querySelector('.spinner').style.visibility = 'visible';\n" .
-			"\t            \n" .
-			"\t            try {\n" .
-			"\t                const response = await fetch(ajaxurl, {\n" .
-			"\t                    method: 'POST',\n" .
-			"\t                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},\n" .
-			"\t                    body: new URLSearchParams({\n" .
-			"\t                        action: 'csh_register_account',\n" .
-			"\t                        email: email,\n" .
-			"\t                        nonce: '$ajax_nonce'\n" .
-			"\t                    })\n" .
-			"\t                });\n" .
-			"\t                const data = await response.json();\n" .
-			"\t                if (data.success) {\n" .
-			"\t                    showMessage('Check your email! We sent a magic link to verify your account.', 'success');\n" .
-			"\t                    checkStatusInterval = setInterval(checkAccountStatus, 5000);\n" .
-			"\t                } else {\n" .
-			"\t                    showMessage(data.data || 'Registration failed. Please try again.', 'error');\n" .
-			"\t                }\n" .
-			"\t            } catch (error) {\n" .
-			"\t                showMessage('Network error. Please try again.', 'error');\n" .
-			"\t            } finally {\n" .
-			"\t                registerBtn.disabled = false;\n" .
-			"\t                document.querySelector('.spinner').style.visibility = 'hidden';\n" .
-			"\t            }\n" .
-			"\t        });\n" .
-			"\t    }\n" .
-			"\t    \n" .
-			"\t    if (disconnectBtn) {\n" .
-			"\t        disconnectBtn.addEventListener('click', async () => {\n" .
-			"\t            if (!confirm('Disconnect your Copyright.sh account?')) return;\n" .
-			"\t            const response = await fetch(ajaxurl, {\n" .
-			"\t                method: 'POST',\n" .
-			"\t                headers: {'Content-Type': 'application/x-www-form-urlencoded'},\n" .
-			"\t                body: new URLSearchParams({action: 'csh_disconnect_account', nonce: '$ajax_nonce'})\n" .
-			"\t            });\n" .
-			"\t            const data = await response.json();\n" .
-			"\t            if (data.success) location.reload();\n" .
-			"\t        });\n" .
-			"\t    }\n" .
-			"\t    \n" .
-			"\t    let checkStatusInterval;\n" .
-			"\t    async function checkAccountStatus() {\n" .
-			"\t        try {\n" .
-			"\t            const response = await fetch(ajaxurl, {\n" .
-			"\t                method: 'POST',\n" .
-			"\t                headers: {'Content-Type': 'application/x-www-form-urlencoded'},\n" .
-			"\t                body: new URLSearchParams({action: 'csh_check_status', nonce: '$ajax_nonce'})\n" .
-			"\t            });\n" .
-			"\t            const data = await response.json();\n" .
-			"\t            if (data.success && data.data.connected) {\n" .
-			"\t                clearInterval(checkStatusInterval);\n" .
-			"\t                location.reload();\n" .
-			"\t            }\n" .
-			"\t        } catch (error) {}\n" .
-			"\t    }\n" .
-			"\t    \n" .
-			"\t    function showMessage(message, type) {\n" .
-			"\t        if (!messageDiv) return;\n" .
-			"\t        messageDiv.className = 'notice notice-' + (type === 'error' ? 'error' : 'success') + ' inline';\n" .
-			"\t        messageDiv.innerHTML = '<p>' + message + '</p>';\n" .
-			"\t    }\n" .
-			"\t});\n" .
-			"})();";
+		$script = "(() => {
+			function toggleAiFields() {
+				const denyChecked = document.querySelector('input[name=\"csh_ai_license_global_settings[allow_deny]\"][value=\"deny\"]')?.checked;
+				const disable = !!denyChecked;
+				const payto = document.querySelector('input[name=\"csh_ai_license_global_settings[payto]\"]');
+				const price = document.querySelector('input[name=\"csh_ai_license_global_settings[price]\"]');
+				const distribution = document.querySelector('select[name=\"csh_ai_license_global_settings[distribution]\"]');
 
+				[payto, price, distribution].forEach(el => { if (el) el.disabled = disable; });
+
+				const msg = document.getElementById('csh_ai_policy_message');
+				if (msg) {
+					if (disable) {
+						msg.textContent = 'All AI usage will be denied. The plugin will emit ai-license.txt, robots.txt rules and meta tags blocking crawlers.';
+					} else {
+						msg.textContent = 'Configure distribution, pricing and payment details to allow specific AI usage.';
+					}
+				}
+			}
+
+			window.addEventListener('DOMContentLoaded', () => {
+				const radios = document.querySelectorAll('input[name=\"csh_ai_license_global_settings[allow_deny]\"]');
+				radios.forEach(r => r.addEventListener('change', toggleAiFields));
+				toggleAiFields();
+			});
+		})();";
 
 		// Register an empty stub script to safely attach inline JS without external file.
-		wp_register_script( 'csh-ai-settings-stub', '' , [], '1.0.0', true );
+		wp_register_script( 'csh-ai-settings-stub', '' , [], '1.3.0', true );
 		wp_enqueue_script( 'csh-ai-settings-stub' );
 		wp_add_inline_script( 'csh-ai-settings-stub', $script );
 
-		// Enhanced CSS for settings page and account section
+		// Enhanced CSS for settings page
 		$css = '.csh-ai-radio label{display:inline-flex;align-items:center;margin-right:1em;margin-bottom:0.5em;}' .
-			'.notice.inline{margin:5px 0 15px!important;}' .
-			'#csh-account-section .spinner{visibility:hidden;margin-left:10px;}' .
-			'#csh-account-message:empty{display:none;}' .
-			'#csh-account-section .button{margin-right:10px;}';
-		wp_register_style( 'csh-ai-settings-style', false, [], '1.0.0' );
+			'.notice.inline{margin:5px 0 15px!important;}';
+		wp_register_style( 'csh-ai-settings-style', false, [], '1.3.0' );
 		wp_enqueue_style( 'csh-ai-settings-style' );
 		wp_add_inline_style( 'csh-ai-settings-style', $css );
 	}
@@ -369,13 +271,12 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		$settings = get_option( self::OPTION_NAME, [] );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'AI License Settings', 'copyright-sh-ai-license' ); ?></h1>
 			<p class="description" style="max-width:600px;">
 				<?php
-				echo wp_kses_post( __( 'Default settings <strong>allow</strong> AI usage with public distribution for <strong>$0.10</strong> per 1&nbsp;K tokens. This covers the vast majority of inference-time look-ups. Training data usage is typically fair-use in the US, but not in the EU. If your site is pay-walled, choose "Private" to restrict usage to individual readers only.', 'copyright-sh-ai-license' ) );
+				echo wp_kses_post( __( 'Default settings <strong>allow</strong> AI usage with public distribution for <strong>$0.10</strong> per 1&nbsp;K tokens. This covers the vast majority of inference-time look-ups. Training data usage is typically fair-use in the US, but not in the EU. If your site is pay-walled, choose "Private" to restrict usage to individual readers only. Visit <a href="https://dashboard.copyright.sh" target="_blank" rel="noopener">dashboard.copyright.sh</a> to track usage and set up payments.', 'copyright-sh-ai-license' ) );
 				?>
 			</p>
 			<form method="post" action="options.php">
@@ -655,137 +556,6 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 		$lines[] = 'License: ' . implode( '; ', $license_parts );
 
 		return implode( "\n", $lines ) . "\n";
-	}
-
-	/* -----------------------------------------------------------------------
-	 * Account Management
-	 * -------------------------------------------------------------------- */
-
-	/**
-	 * Render the account section in settings.
-	 */
-	public function render_account_section() {
-		$account_status = get_option( 'csh_account_status', [] );
-		$connected = ! empty( $account_status['connected'] );
-		?>
-		<div id="csh-account-section">
-			<?php if ( $connected ) : ?>
-				<div class="notice notice-success inline">
-					<p>
-						<strong>✅ Connected to Copyright.sh</strong><br>
-						Account: <?php echo esc_html( $account_status['email'] ?? '' ); ?><br>
-						Domain: <?php echo esc_html( wp_parse_url( home_url(), PHP_URL_HOST ) ); ?>
-					</p>
-					<p>
-						<a href="https://dashboard.copyright.sh" target="_blank" rel="noopener" class="button button-primary">Open Dashboard</a>
-						<button type="button" class="button button-secondary" id="csh-disconnect">Disconnect</button>
-					</p>
-				</div>
-			<?php else : ?>
-				<p>Connect to the Copyright.sh dashboard to:</p>
-				<ul style="list-style: disc; margin-left: 20px;">
-					<li>Track AI usage of your content in real-time</li>
-					<li>View earnings and analytics</li>
-					<li>Configure payment methods (PayPal, Venmo, Stripe)</li>
-					<li>Manage multiple domains from one account</li>
-				</ul>
-				<div id="csh-registration-form">
-					<table class="form-table">
-						<tr>
-							<th scope="row">
-								<label for="csh-email"><?php esc_html_e( 'Email Address', 'copyright-sh-ai-license' ); ?></label>
-							</th>
-							<td>
-								<input type="email" id="csh-email" class="regular-text" placeholder="your@email.com" />
-								<button type="button" class="button button-primary" id="csh-register">Create Account & Connect</button>
-								<span class="spinner" style="float: none;"></span>
-							</td>
-						</tr>
-					</table>
-					<div id="csh-account-message" style="margin-top: 10px;"></div>
-				</div>
-			<?php endif; ?>
-		</div>
-		<?php
-	}
-
-	/**
-	 * AJAX handler for account registration.
-	 * TODO(human): Implement the registration logic here
-	 */
-	public function ajax_register_account() {
-		// TODO(human): Implement this method
-		// 1. Validate the email from $_POST['email']
-		// 2. Get the current domain using wp_parse_url( home_url(), PHP_URL_HOST )
-		// 3. Make API call to https://api.copyright.sh/api/v1/auth/wordpress-register
-		// 4. Handle the response and store account status
-		// 5. Return JSON response with success/error status
-	}
-
-	/**
-	 * AJAX handler for checking account status.
-	 */
-	public function ajax_check_status() {
-		check_ajax_referer( 'csh_ajax_nonce', 'nonce' );
-		
-		$account_status = get_option( 'csh_account_status', [] );
-		
-		if ( empty( $account_status['email'] ) ) {
-			wp_send_json_error( 'No account email found' );
-		}
-		
-		// Check with API for current status
-		$domain = wp_parse_url( home_url(), PHP_URL_HOST );
-		$api_url = 'https://api.copyright.sh/api/v1/auth/wordpress-status';
-		$api_url .= '?' . http_build_query( [
-			'email' => $account_status['email'],
-			'domain' => $domain
-		] );
-		
-		$response = wp_remote_get( $api_url, [
-			'headers' => [
-				'Accept' => 'application/json',
-			],
-			'timeout' => 10,
-		] );
-		
-		if ( is_wp_error( $response ) ) {
-			wp_send_json_error( 'Failed to check status' );
-		}
-		
-		$body = wp_remote_retrieve_body( $response );
-		$data = json_decode( $body, true );
-		
-		if ( ! empty( $data['verified'] ) && ! empty( $data['token'] ) ) {
-			// Update account status with token
-			$account_status['connected'] = true;
-			$account_status['token'] = $data['token'];
-			$account_status['token_expires'] = time() + ( $data['expires_in'] ?? 7776000 );
-			update_option( 'csh_account_status', $account_status );
-			
-			wp_send_json_success( [
-				'connected' => true,
-				'message' => 'Account verified successfully!'
-			] );
-		}
-		
-		wp_send_json_success( [
-			'connected' => false,
-			'message' => 'Waiting for email verification...'
-		] );
-	}
-
-	/**
-	 * AJAX handler for disconnecting account.
-	 */
-	public function ajax_disconnect_account() {
-		check_ajax_referer( 'csh_ajax_nonce', 'nonce' );
-		
-		delete_option( 'csh_account_status' );
-		
-		wp_send_json_success( [
-			'message' => 'Account disconnected successfully'
-		] );
 	}
 }
 
