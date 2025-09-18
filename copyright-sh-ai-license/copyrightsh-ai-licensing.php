@@ -714,12 +714,17 @@ __( 'Price (USD)', 'copyright-sh-ai-license' ),
 	 * TODO(human): Implement the registration logic here
 	 */
 	public function ajax_register_account() {
-		// TODO(human): Implement this method
-		// 1. Validate the email from $_POST['email']
-		// 2. Get the current domain using wp_parse_url( home_url(), PHP_URL_HOST )
-		// 3. Make API call to https://api.copyright.sh/api/v1/auth/wordpress-register
-		// 4. Handle the response and store account status
-		// 5. Return JSON response with success/error status
+		// TODO(human): Implement the registration logic
+		// This function should:
+		// 1. Verify the nonce for security
+		// 2. Validate the email from $_POST['email']
+		// 3. Get the current domain using wp_parse_url( home_url(), PHP_URL_HOST )
+		// 4. Make API call to https://api.copyright.sh/api/v1/auth/wordpress-register
+		//    with JSON body: { email, domain, plugin_version }
+		// 5. Handle the response and store account status in 'csh_account_status' option
+		// 6. Return JSON response with success/error status using wp_send_json_success/error
+		
+		// Start your implementation here...
 	}
 
 	/**
