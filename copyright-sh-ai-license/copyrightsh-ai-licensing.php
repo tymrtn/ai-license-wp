@@ -3,9 +3,9 @@
  * Plugin Name: Copyright.sh – AI License
  * Plugin URI:  https://copyright.sh/
  * Description: Declare, customise and serve AI licence metadata (<meta name="ai-license"> tag and /ai-license.txt) for WordPress sites.
- * Version:     1.3.0
+ * Version:     1.4.0
  * Requires at least: 6.2
- * Tested up to: 6.5
+ * Tested up to: 6.8
  * Requires PHP: 7.4
  * Author:      Copyright.sh
  * Author URI:  https://copyright.sh
@@ -51,6 +51,59 @@ class CSH_AI_Licensing_Plugin {
     // Dual-axis system: distribution (private/public) replaces old scope system.
     private $distribution_levels = [ 'private', 'public' ];
 
+    /**
+     * Default robots.txt template (with placeholder for sitemap URL).
+     */
+    private const DEFAULT_ROBOTS_TEMPLATE = <<<ROBOTS
+# Copyright.sh Robots.txt - AI Protection Template
+# Block AI training bots while allowing search engines
+
+# Allow search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+# Block OpenAI
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+# Block Anthropic
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+# Block Common Crawl (used by many AI companies)
+User-agent: CCBot
+Disallow: /
+
+# Block other AI/ML bots
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: YouBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+# Default: Allow all other bots (customise as needed)
+User-agent: *
+Allow: /
+
+# Sitemap location (optional)
+Sitemap: {{sitemap_url}}
+ROBOTS;
+
 	/**
 	 * Get singleton.
 	 *
@@ -85,6 +138,12 @@ class CSH_AI_Licensing_Plugin {
 		// ai-license.txt rewrite.
 		add_action( 'init', [ $this, 'add_rewrite' ] );
 		add_action( 'template_redirect', [ $this, 'maybe_serve_ai_txt' ] );
+
+		// AI bot blocking at PHP level.
+		add_action( 'init', [ $this, 'maybe_block_ai_bot' ], 1 );
+
+		// robots.txt override (optional).
+		add_filter( 'robots_txt', [ $this, 'filter_robots_txt' ], 10, 2 );
 	}
 
 	/**
@@ -154,6 +213,29 @@ class CSH_AI_Licensing_Plugin {
 			'csh-ai-license',
 			'csh_ai_license_main'
 		);
+
+		add_settings_section(
+			'csh_ai_license_robots',
+			__( 'AI Crawler Controls', 'copyright-sh-ai-license' ),
+			[ $this, 'section_robots_intro' ],
+			'csh-ai-license'
+		);
+
+		add_settings_field(
+			'robots_enabled',
+			__( 'Enable custom robots.txt', 'copyright-sh-ai-license' ),
+			[ $this, 'field_robots_toggle' ],
+			'csh-ai-license',
+			'csh_ai_license_robots'
+		);
+
+		add_settings_field(
+			'robots_content',
+			__( 'robots.txt template', 'copyright-sh-ai-license' ),
+			[ $this, 'field_robots_content' ],
+			'csh-ai-license',
+			'csh_ai_license_robots'
+		);
 	}
 
 	/**
@@ -169,6 +251,12 @@ class CSH_AI_Licensing_Plugin {
 			'price'      => sanitize_text_field( $input['price'] ?? '' ),
 			'distribution' => in_array( $input['distribution'] ?? '', $this->distribution_levels, true ) ? $input['distribution'] : '',
 		];
+
+		$sanitized['robots_enabled'] = ! empty( $input['robots_enabled'] ) ? '1' : '';
+
+		$robots_content = isset( $input['robots_content'] ) ? $this->sanitize_robots_content( $input['robots_content'] ) : '';
+		$sanitized['robots_content'] = $robots_content;
+
 		return $sanitized;
 	}
 
@@ -219,7 +307,7 @@ class CSH_AI_Licensing_Plugin {
 				const msg = document.getElementById('csh_ai_policy_message');
 				if (msg) {
 					if (disable) {
-						msg.textContent = 'All AI usage will be denied. The plugin will emit ai-license.txt, robots.txt rules and meta tags blocking crawlers.';
+						msg.textContent = 'All AI usage will be denied. The plugin will emit ai-license.txt and meta tags blocking crawlers (optional robots.txt rules if enabled).';
 					} else {
 						msg.textContent = 'Configure distribution, pricing and payment details to allow specific AI usage.';
 					}
@@ -234,14 +322,14 @@ class CSH_AI_Licensing_Plugin {
 		})();";
 
 		// Register an empty stub script to safely attach inline JS without external file.
-		wp_register_script( 'csh-ai-settings-stub', '' , [], '1.3.0', true );
+		wp_register_script( 'csh-ai-settings-stub', '' , [], '1.4.0', true );
 		wp_enqueue_script( 'csh-ai-settings-stub' );
 		wp_add_inline_script( 'csh-ai-settings-stub', $script );
 
 		// Enhanced CSS for settings page
 		$css = '.csh-ai-radio label{display:inline-flex;align-items:center;margin-right:1em;margin-bottom:0.5em;}' .
 			'.notice.inline{margin:5px 0 15px!important;}';
-		wp_register_style( 'csh-ai-settings-style', false, [], '1.3.0' );
+		wp_register_style( 'csh-ai-settings-style', false, [], '1.4.0' );
 		wp_enqueue_style( 'csh-ai-settings-style' );
 		wp_add_inline_style( 'csh-ai-settings-style', $css );
 	}
@@ -497,6 +585,8 @@ class CSH_AI_Licensing_Plugin {
 			'payto'      => '',
 			'price'      => '0.10',
 			'distribution' => '',
+			'robots_enabled' => '',
+			'robots_content' => '',
 		] );
 	}
 
@@ -557,6 +647,140 @@ class CSH_AI_Licensing_Plugin {
 
 		return implode( "\n", $lines ) . "\n";
 	}
+
+	/* -----------------------------------------------------------------------
+	 * AI Bot Blocking at PHP Level
+	 * -------------------------------------------------------------------- */
+
+	/**
+	 * Block AI bots at the PHP level based on user agent.
+	 */
+	public function maybe_block_ai_bot() {
+		// TODO(human): Implement AI bot detection and blocking
+		// This function should:
+		// 1. Get the user agent string from $_SERVER['HTTP_USER_AGENT']
+		// 2. Check against a list of known AI bot patterns (case-insensitive regex)
+		//    Examples: GPTBot, ChatGPT-User, ClaudeBot, CCBot, anthropic-ai,
+		//    Google-Extended, Bytespider, PerplexityBot, etc.
+		// 3. Check if blocking is enabled in plugin settings
+		// 4. If bot detected and blocking enabled, either:
+		//    - Send 403 Forbidden response with wp_die()
+		//    - Or serve alternative content (license notice page)
+		// 5. Consider logging blocked attempts for analytics
+		//
+		// Example patterns array:
+		// $ai_bot_patterns = [
+		//     '/GPTBot/i',
+		//     '/ChatGPT-User/i',
+		//     '/ClaudeBot/i',
+		//     '/anthropic-ai/i',
+		//     '/CCBot/i',
+		//     '/Google-Extended/i',
+		//     '/Bytespider/i',
+		//     '/PerplexityBot/i',
+		//     '/Meta-ExternalAgent/i'
+		// ];
+		//
+		// Implementation here...
+	}
+
+    /**
+     * robots.txt helper: section intro.
+     */
+    public function section_robots_intro() {
+        echo wp_kses_post( '<p>' . __( 'Enable a curated robots.txt template to block common AI crawlers while still allowing search engines. You can customise the contents before publishing.', 'copyright-sh-ai-license' ) . '</p>' );
+    }
+
+    /**
+     * Checkbox to enable robots.txt override.
+     */
+    public function field_robots_toggle() {
+        $settings = get_option( self::OPTION_NAME, [] );
+        $enabled  = ! empty( $settings['robots_enabled'] );
+        printf(
+            '<label><input type="checkbox" name="%1$s[robots_enabled]" value="1" %2$s /> %3$s</label>',
+            esc_attr( self::OPTION_NAME ),
+            checked( $enabled, true, false ),
+            esc_html__( 'Generate robots.txt rules for AI crawlers (optional)', 'copyright-sh-ai-license' )
+        );
+    }
+
+    /**
+     * Textarea for robots.txt content.
+     */
+    public function field_robots_content() {
+        $settings  = get_option( self::OPTION_NAME, [] );
+        $current   = $settings['robots_content'] ?? '';
+        if ( '' === trim( $current ) ) {
+            $current = $this->get_default_robots_template();
+        }
+
+        printf(
+            '<textarea name="%1$s[robots_content]" rows="18" class="large-text code">%2$s</textarea>',
+            esc_attr( self::OPTION_NAME ),
+            esc_textarea( $current )
+        );
+
+        $desc = __( 'Adjust the template as needed. The sitemap line will automatically update with your site URL. Leave blank to fall back to the recommended default.', 'copyright-sh-ai-license' );
+        echo wp_kses_post( '<p class="description">' . $desc . '</p>' );
+    }
+
+    /**
+     * Filter robots.txt output when enabled.
+     *
+     * @param string $output Existing robots.txt content.
+     * @param bool   $public Public flag from WordPress.
+     * @return string
+     */
+    public function filter_robots_txt( $output, $public ) {
+        $settings = get_option( self::OPTION_NAME, [] );
+        if ( empty( $settings['robots_enabled'] ) ) {
+            return $output;
+        }
+
+        $content = $settings['robots_content'] ?? '';
+        if ( '' === trim( $content ) ) {
+            $content = $this->get_default_robots_template();
+        } else {
+            $content = $this->sanitize_robots_content( $content );
+        }
+
+        return $this->replace_robots_placeholders( $content );
+    }
+
+    /**
+     * Sanitise robots.txt content (strip control chars & ensure unix newlines).
+     *
+     * @param string $raw Raw input.
+     * @return string
+     */
+    private function sanitize_robots_content( $raw ) {
+        $raw = wp_strip_all_tags( $raw, false );
+        $raw = preg_replace( '/[\x00-\x1F\x7F]/', '', $raw );
+        $raw = str_replace( [ "\r\n", "\r" ], "\n", (string) $raw );
+        return trim( $raw );
+    }
+
+    /**
+     * Get default robots template with sitemap placeholder.
+     *
+     * @return string
+     */
+    private function get_default_robots_template() {
+        return $this->replace_robots_placeholders( self::DEFAULT_ROBOTS_TEMPLATE );
+    }
+
+    /**
+     * Replace template placeholders with runtime values.
+     *
+     * @param string $content Robots template.
+     * @return string
+     */
+    private function replace_robots_placeholders( $content ) {
+        $sitemap_url = trailingslashit( home_url() ) . 'sitemap.xml';
+        $replaced    = str_replace( '{{sitemap_url}}', esc_url_raw( $sitemap_url ), $content );
+        return trim( $replaced ) . "\n";
+    }
 }
 
 // Bootstrap plugin.

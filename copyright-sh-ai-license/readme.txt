@@ -4,7 +4,7 @@ Tags:              ai, license, snippets, content
 Requires at least: 6.2
 Tested up to:      6.8
 Requires PHP:      7.4
-Stable tag:        1.3.0
+Stable tag:        1.4.0
 License:           GPLv3 or later
 License URI:       https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -21,6 +21,11 @@ Generates `<meta name="ai-license">` tags and a domain-wide `ai-license.txt` end
 2. Activate.
 
 == Changelog ==
+
+= 1.4.0 =
+* Feature: Optional robots.txt generator with curated AI crawler controls
+* Added toggle + editable template in settings, including warnings for existing server-managed robots.txt
+* Updated documentation, readme and screenshots for robots.txt guidance
 
 = 1.3.0 =
 * Removed account creation features for WordPress.org compliance
