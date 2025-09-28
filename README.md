@@ -9,6 +9,7 @@ A WordPress plugin that enables websites to declare AI usage permissions and mon
 - ⚙️ Global settings with per-page/post overrides
 - 💰 Monetization support with payment routing
 - 🔒 Privacy controls (public vs private distribution)
+- 🛡️ Optional robots.txt generator to block AI crawlers while preserving SEO
 
 ## License Grammar v1.5
 
@@ -36,6 +37,11 @@ The plugin implements the Copyright.sh License Grammar Specification v1.5:
 - PHP 7.4 or higher
 
 ## Changelog
+
+### 1.4.0
+- Added optional robots.txt management with curated AI crawler template
+- New settings toggle and editor with preview; warns when server-managed robots.txt is detected
+- Updated documentation and screenshots for robots.txt guidance
 
 ### 1.2.0
 - Updated to License Grammar v1.5 (distribution parameter)

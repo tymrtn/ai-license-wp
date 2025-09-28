@@ -3,9 +3,9 @@
  * Plugin Name: Copyright.sh – AI License
  * Plugin URI:  https://copyright.sh/
  * Description: Declare, customise and serve AI licence metadata (<meta name="ai-license"> tag and /ai-license.txt) for WordPress sites.
- * Version:     1.4.1
+ * Version:     1.4.2
  * Requires at least: 6.2
- * Tested up to: 6.8.1
+ * Tested up to: 6.8.2
  * Requires PHP: 7.4
  * Author:      Copyright.sh
  * Author URI:  https://copyright.sh
@@ -296,7 +296,8 @@ ROBOTS;
 	private function enqueue_settings_script() {
 		$script = "(() => {
 			function toggleAiFields() {
-				const denyChecked = document.querySelector('input[name=\"csh_ai_license_global_settings[allow_deny]\"][value=\"deny\"]')?.checked;
+				const denyOption = document.querySelector('input[name=\"csh_ai_license_global_settings[allow_deny]\"][value=\"deny\"]');
+				const denyChecked = denyOption ? denyOption.checked : false;
 				const disable = !!denyChecked;
 				const payto = document.querySelector('input[name=\"csh_ai_license_global_settings[payto]\"]');
 				const price = document.querySelector('input[name=\"csh_ai_license_global_settings[price]\"]');
@@ -314,10 +315,32 @@ ROBOTS;
 				}
 			}
 
+			function toggleRobotsFields() {
+				const checkbox = document.querySelector('input[name=\"csh_ai_license_global_settings[robots_enabled]\"]');
+				const container = document.getElementById('csh_ai_robots_fields');
+				const textarea = document.querySelector('textarea[name=\"csh_ai_license_global_settings[robots_content]\"]');
+				const helpers = document.querySelectorAll('.csh-ai-robots-helper');
+				const enabled = !!(checkbox && checkbox.checked);
+
+				if (container) {
+					container.style.display = enabled ? '' : 'none';
+				}
+				if (textarea) {
+					textarea.disabled = !enabled;
+				}
+				helpers.forEach(el => { el.style.display = enabled ? '' : 'none'; });
+			}
+
 			window.addEventListener('DOMContentLoaded', () => {
 				const radios = document.querySelectorAll('input[name=\"csh_ai_license_global_settings[allow_deny]\"]');
 				radios.forEach(r => r.addEventListener('change', toggleAiFields));
 				toggleAiFields();
+
+				const robotsToggle = document.querySelector('input[name=\"csh_ai_license_global_settings[robots_enabled]\"]');
+				if (robotsToggle) {
+					robotsToggle.addEventListener('change', toggleRobotsFields);
+				}
+				toggleRobotsFields();
 			});
 		})();";
 
@@ -688,7 +711,18 @@ ROBOTS;
      * robots.txt helper: section intro.
      */
     public function section_robots_intro() {
-        echo wp_kses_post( '<p>' . __( 'Enable a curated robots.txt template to block common AI crawlers while still allowing search engines. You can customise the contents before publishing.', 'copyright-sh-ai-license' ) . '</p>' );
+		echo '<div class="csh-ai-robots-intro">';
+		echo wp_kses_post( '<p>' . __( 'Enable a curated robots.txt template to block common AI crawlers while still allowing search engines. You can customise the contents before publishing.', 'copyright-sh-ai-license' ) . '</p>' );
+
+		$settings = get_option( self::OPTION_NAME, [] );
+		if ( 'deny' === ( $settings['allow_deny'] ?? '' ) ) {
+			echo wp_kses_post( '<div class="notice notice-warning csh-ai-robots-helper" style="margin-top:1em;"><p>' . __( 'Your global policy is set to deny all AI usage. Robots.txt is optional in this mode — keep it disabled unless you need additional crawler control.', 'copyright-sh-ai-license' ) . '</p></div>' );
+		}
+
+		if ( $this->server_has_robots_file() ) {
+			echo wp_kses_post( '<div class="notice notice-warning csh-ai-robots-helper" style="margin-top:1em;"><p>' . __( 'We detected an existing robots.txt served by your web server or another plugin. Enabling this feature will override that output. If you prefer to keep your existing robots.txt, leave this disabled.', 'copyright-sh-ai-license' ) . '</p></div>' );
+		}
+		echo '</div>';
     }
 
     /**
@@ -703,6 +737,7 @@ ROBOTS;
             checked( $enabled, true, false ),
             esc_html__( 'Generate robots.txt rules for AI crawlers (optional)', 'copyright-sh-ai-license' )
         );
+		echo wp_kses_post( '<p class="description">' . __( 'When disabled, your existing robots.txt (WordPress default or server-managed) will remain untouched.', 'copyright-sh-ai-license' ) . '</p>' );
     }
 
     /**
@@ -714,15 +749,19 @@ ROBOTS;
         if ( '' === trim( $current ) ) {
             $current = $this->get_default_robots_template();
         }
+		$enabled = ! empty( $settings['robots_enabled'] );
+		$style   = $enabled ? '' : ' style="display:none;"';
+		echo '<div id="csh_ai_robots_fields"' . $style . '>';
+		printf(
+			'<textarea name="%1$s[robots_content]" rows="18" class="large-text code" %3$s>%2$s</textarea>',
+			esc_attr( self::OPTION_NAME ),
+			esc_textarea( $current ),
+			$enabled ? '' : 'disabled="disabled"'
+		);
+		echo '</div>';
 
-        printf(
-            '<textarea name="%1$s[robots_content]" rows="18" class="large-text code">%2$s</textarea>',
-            esc_attr( self::OPTION_NAME ),
-            esc_textarea( $current )
-        );
-
-        $desc = __( 'Adjust the template as needed. The sitemap line will automatically update with your site URL. Leave blank to fall back to the recommended default.', 'copyright-sh-ai-license' );
-        echo wp_kses_post( '<p class="description">' . $desc . '</p>' );
+		$desc = __( 'Adjust the template as needed. The sitemap line will automatically update with your site URL. Leave blank to fall back to the recommended default.', 'copyright-sh-ai-license' );
+		echo wp_kses_post( '<p class="description csh-ai-robots-helper"' . ( $enabled ? '' : ' style="display:none;"' ) . '>' . $desc . '</p>' );
     }
 
     /**
@@ -781,6 +820,19 @@ ROBOTS;
         $replaced    = str_replace( '{{sitemap_url}}', esc_url_raw( $sitemap_url ), $content );
         return trim( $replaced ) . "\n";
     }
+
+	private function server_has_robots_file() {
+		if ( file_exists( ABSPATH . 'robots.txt' ) ) {
+			return true;
+		}
+
+		$response = wp_remote_head( home_url( '/robots.txt' ) );
+		if ( is_wp_error( $response ) ) {
+			return false;
+		}
+		$status = wp_remote_retrieve_response_code( $response );
+		return 200 === $status;
+	}
 }
 
 // Bootstrap plugin.
