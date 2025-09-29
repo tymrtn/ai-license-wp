@@ -10,6 +10,7 @@ A WordPress plugin that enables websites to declare AI usage permissions and mon
 - 💰 Monetization support with payment routing
 - 🔒 Privacy controls (public vs private distribution)
 - 🛡️ Optional robots.txt generator to block AI crawlers while preserving SEO
+- 🔗 One-click dashboard connection (magic link account setup from WordPress)
 
 ## License Grammar v1.5
 
@@ -37,6 +38,11 @@ The plugin implements the Copyright.sh License Grammar Specification v1.5:
 - PHP 7.4 or higher
 
 ## Changelog
+
+### 1.5.0
+- Added in-dashboard account creation and connection flow (magic link powered)
+- AJAX status polling, token storage, and automatic refresh scheduling
+- Disconnect/reset controls and new onboarding copy
 
 ### 1.4.0
 - Added optional robots.txt management with curated AI crawler template

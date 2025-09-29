@@ -3,7 +3,7 @@
  * Plugin Name: Copyright.sh – AI License
  * Plugin URI:  https://copyright.sh/
  * Description: Declare, customise and serve AI licence metadata (<meta name="ai-license"> tag and /ai-license.txt) for WordPress sites.
- * Version:     1.4.2
+ * Version:     1.5.0
  * Requires at least: 6.2
  * Tested up to: 6.8.2
  * Requires PHP: 7.4
@@ -24,6 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Main plugin class.
  */
 class CSH_AI_Licensing_Plugin {
+	public const VERSION = '1.5.0';
 
 	/**
 	 * Option name used to store global settings.
@@ -144,6 +145,7 @@ ROBOTS;
 		add_action( 'admin_init', [ $this, 'register_settings' ] );
 		add_action( 'admin_menu', [ $this, 'add_settings_page' ] );
 		add_action( 'admin_init', [ $this, 'register_account_endpoints' ] );
+		add_action( 'admin_init', [ $this, 'maybe_refresh_token' ] );
 
 		// Output meta tag.
 		add_action( 'wp_head', [ $this, 'output_meta_tag' ] );
@@ -180,6 +182,7 @@ ROBOTS;
 	 */
 	public static function deactivate() {
 		flush_rewrite_rules();
+		wp_clear_scheduled_hook( 'csh_ai_refresh_token_event' );
 	}
 
 	/* -----------------------------------------------------------------------
@@ -383,8 +386,17 @@ ROBOTS;
 				const noticeArea = document.getElementById('csh_ai_account_status');
 				const emailField = document.getElementById('csh_ai_account_email');
 				const nonceField = document.getElementById('csh_ai_account_nonce');
+				let pollingInterval = null;
+
+				function setLoading(loading) {
+					if (!noticeArea) {
+						return;
+					}
+					noticeArea.classList.toggle('csh-ai-loading', !!loading);
+				}
 
 				function ajax(endpoint, data) {
+					setLoading(true);
 					const payload = new URLSearchParams({
 						action: endpoint,
 						nonce: nonceField ? nonceField.value : '',
@@ -394,7 +406,7 @@ ROBOTS;
 						method: 'POST',
 						headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
 						body: payload.toString(),
-					}).then(resp => resp.json());
+					}).then(resp => resp.json()).finally(() => setLoading(false));
 				}
 
 				function handleResponse(resp) {
@@ -405,10 +417,28 @@ ROBOTS;
 						return;
 					}
 					if (resp.success) {
-						statusField.value = resp.data?.verified ? 'connected' : (resp.data?.status || 'pending');
-						location.reload();
+						if (resp.data && resp.data.verified) {
+							statusField.value = 'connected';
+							location.reload();
+							return;
+						}
+						statusField.value = resp.data?.status || 'pending';
+						maybeStartPolling();
 					} else if (resp.data && resp.data.message) {
-						alert(resp.data.message);
+						window.alert(resp.data.message);
+					}
+				}
+
+				function pollStatus() {
+					ajax('csh_ai_check_account_status', {}).then(handleResponse);
+				}
+
+				function maybeStartPolling() {
+					if (pollingInterval) {
+						clearInterval(pollingInterval);
+					}
+					if (statusField && statusField.value === 'pending') {
+						pollingInterval = setInterval(pollStatus, 15000);
 					}
 				}
 
@@ -433,6 +463,7 @@ ROBOTS;
 						ajax('csh_ai_disconnect_account', {}).then(handleResponse);
 					});
 				}
+				maybeStartPolling();
 			}
 
 			window.addEventListener('DOMContentLoaded', () => {
@@ -1080,7 +1111,7 @@ ROBOTS;
 			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'copyright-sh-ai-license' ) ], 403 );
 		}
 		$this->update_account_status( self::ACCOUNT_DEFAULTS );
-		wp_send_json_success();
+		wp_send_json_success( [ 'status' => 'disconnected' ] );
 	}
 
 	public function maybe_refresh_token() {
@@ -1094,7 +1125,7 @@ ROBOTS;
 		if ( empty( $account['token'] ) ) {
 			return;
 		}
-		$response = wp_remote_post( trailingslashit( $this->get_api_base() ) . 'auth/refresh', [
+		$response = wp_remote_post( $this->get_api_base() . 'auth/refresh', [
 			'headers' => [ 'Authorization' => 'Bearer ' . $account['token'] ],
 			'timeout' => 15,
 		] );
@@ -1120,7 +1151,7 @@ ROBOTS;
 	}
 
 	public static function get_version() {
-		return '1.4.2';
+		return self::VERSION;
 	}
 }
 

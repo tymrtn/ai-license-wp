@@ -2,13 +2,13 @@
 Contributors:      copyrightsh
 Tags:              ai, license, copyright, monetization, artificial intelligence, content protection, royalty, machine learning, gpt, chatgpt, claude, bard, perplexity, meta tags, robots
 Requires at least: 6.2
-Tested up to:      6.8.1
+Tested up to:      6.8.2
 Requires PHP:      7.4
-Stable tag:        1.4.1
+Stable tag:        1.5.0
 License:           GPLv3 or later
 License URI:       https://www.gnu.org/licenses/gpl-3.0.html
 
-Get paid when AI uses your content. One plugin protects your entire WordPress site with machine-readable licensing that AI companies respect and pay for.
+Get paid when AI uses your content. One plugin protects your entire WordPress site with machine-readable licensing that AI companies respect and pay for — now with one-click dashboard connection.
 
 == Description ==
 
@@ -29,7 +29,7 @@ Now it's YOUR turn. This plugin makes enterprise-grade AI licensing accessible t
 = How It Works – Simple Yet Powerful =
 
 **1. Install & Configure** (60 seconds)
-Set your price per 1,000 tokens and payment method. Start with our recommended $0.10 default – it adds up fast!
+Set your price per 1,000 tokens, connect your Copyright.sh dashboard with a single click, and choose your payout email. Start with our recommended $0.10 default – it adds up fast!
 
 **2. Automatic Protection**
 The plugin instantly adds AI-readable license tags to every page:
@@ -37,6 +37,7 @@ The plugin instantly adds AI-readable license tags to every page:
 • `/ai-license.txt` file at your domain root
 • Per-post overrides for premium content
 • Optional robots.txt to block unwanted AI crawlers
+• **New:** One-click dashboard connection with magic link authentication
 
 **3. Get Paid**
 When AI companies use your content, they pay your set rate. Track earnings and usage at dashboard.copyright.sh.
@@ -50,6 +51,7 @@ When AI companies use your content, they pay your set rate. Track earnings and u
 ✅ **AI Crawler Blocking** – Optional robots.txt generator blocks AI bots while preserving search engines
 ✅ **Zero Technical Knowledge Required** – If you can install a plugin, you can license to AI
 ✅ **Future-Proof Protection** – Automatically updates as AI licensing standards evolve
+✅ **Instant Dashboard Sync** – Connect to dashboard.copyright.sh without leaving WordPress
 
 = Perfect For =
 
@@ -88,6 +90,7 @@ This plugin implements the Copyright.sh License Grammar Specification – an ope
 • Automatic meta tag injection
 • AI-license.txt generation
 • Robot.txt bot blocking (optional)
+• **One-click account connection** with magic link authentication
 • Clean, optimized code with zero bloat
 • Regular updates as standards evolve
 • Full documentation and support
@@ -123,8 +126,8 @@ After activation:
 1. Go to Settings → AI License
 2. Choose "Allow" or "Deny" as your default policy
 3. Set your price per 1,000 tokens (default: $0.10)
-4. Enter your payment ID or leave blank to use your domain
-5. Choose distribution level (public or private)
+4. Click "Create account & connect" to receive a magic link in your inbox
+5. Verify the email — your domain links automatically in the dashboard
 6. Optionally enable robots.txt to block unwanted AI crawlers
 7. Save changes – you're protected!
 
@@ -140,7 +143,7 @@ No! The plugin only affects AI training bots, not search engines. In fact, our o
 
 = How do I get paid? =
 
-Sign up at dashboard.copyright.sh to link your payment method (PayPal, Venmo, Stripe). Earnings accumulate under your domain name even before you register – you won't lose any revenue!
+Use the new “Create account & connect” button inside the plugin. A magic link email logs you into your dashboard instantly, where you can add payout methods (PayPal, Venmo, Stripe). Earnings accumulate under your domain name even before you register – you won't lose any revenue!
 
 = What's the difference between public and private distribution? =
 
@@ -183,6 +186,10 @@ No. The plugin is highly optimized and only adds a single meta tag to your HTML 
 
 The plugin's robots.txt feature is optional. If you already manage robots.txt through your server or another plugin, you can leave this feature disabled.
 
+= Do I need to leave WordPress to connect? =
+
+No. Enter your email in the new account section and we send a magic link. Once you click it, your WordPress site is connected automatically — no copy-pasting tokens required.
+
 == Screenshots ==
 
 1. Global settings page - Configure your default AI licensing policy
@@ -192,6 +199,17 @@ The plugin's robots.txt feature is optional. If you already manage robots.txt th
 5. Robots.txt editor - Block AI crawlers while preserving SEO
 
 == Changelog ==
+
+= 1.5.0 =
+* Feature: One-click dashboard connection with magic link authentication
+* Added AJAX registration/status polling, token storage, and scheduled refresh
+* Disconnect/reset controls and improved onboarding copy
+
+= 1.4.2 =
+* Enhanced readme with comprehensive feature descriptions and FAQs
+* Added detailed installation instructions and setup guide
+* Improved marketing copy to highlight creator benefits
+* Updated compatibility: Tested with WordPress 6.8.2
 
 = 1.4.1 =
 * Compatibility: Tested with WordPress 6.8.1
