@@ -29,6 +29,7 @@ class CSH_AI_Licensing_Plugin {
 	 * Option name used to store global settings.
 	 */
 	public const OPTION_NAME = 'csh_ai_license_global_settings';
+	public const ACCOUNT_OPTION = 'csh_ai_account_status';
 
 	/**
 	 * Meta key for per-post overrides.
@@ -104,6 +105,25 @@ Allow: /
 Sitemap: {{sitemap_url}}
 ROBOTS;
 
+	private const OPTION_DEFAULTS = [
+		'allow_deny'      => 'allow',
+		'payto'           => '',
+		'price'           => '0.10',
+		'distribution'    => '',
+		'robots_enabled'  => '',
+		'robots_content'  => '',
+	];
+
+	private const ACCOUNT_DEFAULTS = [
+		'connected'      => false,
+		'email'          => '',
+		'creator_id'     => '',
+		'token'          => '',
+		'token_expires'  => 0,
+		'last_status'    => 'disconnected',
+		'last_checked'   => 0,
+	];
+
 	/**
 	 * Get singleton.
 	 *
@@ -123,6 +143,7 @@ ROBOTS;
 		// Register settings & UI.
 		add_action( 'admin_init', [ $this, 'register_settings' ] );
 		add_action( 'admin_menu', [ $this, 'add_settings_page' ] );
+		add_action( 'admin_init', [ $this, 'register_account_endpoints' ] );
 
 		// Output meta tag.
 		add_action( 'wp_head', [ $this, 'output_meta_tag' ] );
@@ -170,6 +191,7 @@ ROBOTS;
 	 */
 	public function register_settings() {
 		register_setting( 'csh_ai_license_settings_group', self::OPTION_NAME, [ $this, 'sanitize_settings' ] );
+		register_setting( 'csh_ai_license_settings_group', self::ACCOUNT_OPTION, [ $this, 'sanitize_account_status' ] );
 
 		add_settings_section(
 			'csh_ai_license_main',
@@ -236,6 +258,21 @@ ROBOTS;
 			'csh-ai-license',
 			'csh_ai_license_robots'
 		);
+
+		add_settings_section(
+			'csh_ai_license_account',
+			__( 'Copyright.sh Account', 'copyright-sh-ai-license' ),
+			[ $this, 'section_account_intro' ],
+			'csh-ai-license'
+		);
+
+		add_settings_field(
+			'account_status',
+			__( 'Connection Status', 'copyright-sh-ai-license' ),
+			[ $this, 'field_account_status' ],
+			'csh-ai-license',
+			'csh_ai_license_account'
+		);
 	}
 
 	/**
@@ -245,19 +282,25 @@ ROBOTS;
 	 * @return array Sanitized.
 	 */
 	public function sanitize_settings( $input ) {
+		$input = is_array( $input ) ? $input : [];
 		$sanitized = [
-			'allow_deny' => ( 'deny' === ( $input['allow_deny'] ?? 'allow' ) ) ? 'deny' : 'allow',
-			'payto'      => sanitize_text_field( $input['payto'] ?? '' ),
-			'price'      => sanitize_text_field( $input['price'] ?? '' ),
+			'allow_deny'   => ( 'deny' === ( $input['allow_deny'] ?? 'allow' ) ) ? 'deny' : 'allow',
+			'payto'        => sanitize_text_field( $input['payto'] ?? '' ),
+			'price'        => sanitize_text_field( $input['price'] ?? '' ),
 			'distribution' => in_array( $input['distribution'] ?? '', $this->distribution_levels, true ) ? $input['distribution'] : '',
+			'robots_enabled' => ! empty( $input['robots_enabled'] ) ? '1' : '',
 		];
-
-		$sanitized['robots_enabled'] = ! empty( $input['robots_enabled'] ) ? '1' : '';
 
 		$robots_content = isset( $input['robots_content'] ) ? $this->sanitize_robots_content( $input['robots_content'] ) : '';
 		$sanitized['robots_content'] = $robots_content;
 
-		return $sanitized;
+		return wp_parse_args( $sanitized, self::OPTION_DEFAULTS );
+	}
+
+	public function sanitize_account_status( $input ) {
+		$input = is_array( $input ) ? $input : [];
+		$defaults = self::ACCOUNT_DEFAULTS;
+		return wp_parse_args( $input, $defaults );
 	}
 
 	/**
@@ -331,6 +374,67 @@ ROBOTS;
 				helpers.forEach(el => { el.style.display = enabled ? '' : 'none'; });
 			}
 
+			function initAccountActions() {
+				const connectBtn = document.getElementById('csh_ai_connect');
+				const resendBtn = document.getElementById('csh_ai_resend');
+				const cancelBtn = document.getElementById('csh_ai_cancel');
+				const disconnectBtn = document.getElementById('csh_ai_disconnect');
+				const statusField = document.getElementById('csh_ai_account_status_field');
+				const noticeArea = document.getElementById('csh_ai_account_status');
+				const emailField = document.getElementById('csh_ai_account_email');
+				const nonceField = document.getElementById('csh_ai_account_nonce');
+
+				function ajax(endpoint, data) {
+					const payload = new URLSearchParams({
+						action: endpoint,
+						nonce: nonceField ? nonceField.value : '',
+						...data,
+					});
+					return fetch(ajaxurl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+						body: payload.toString(),
+					}).then(resp => resp.json());
+				}
+
+				function handleResponse(resp) {
+					if (!noticeArea || !statusField) {
+						return;
+					}
+					if (!resp) {
+						return;
+					}
+					if (resp.success) {
+						statusField.value = resp.data?.verified ? 'connected' : (resp.data?.status || 'pending');
+						location.reload();
+					} else if (resp.data && resp.data.message) {
+						alert(resp.data.message);
+					}
+				}
+
+				if (connectBtn) {
+					connectBtn.addEventListener('click', () => {
+						const email = emailField ? emailField.value : '';
+						ajax('csh_ai_register_account', { email }).then(handleResponse);
+					});
+				}
+				if (resendBtn) {
+					resendBtn.addEventListener('click', () => {
+						ajax('csh_ai_register_account', { email: emailField ? emailField.value : '' }).then(handleResponse);
+					});
+				}
+				if (cancelBtn) {
+					cancelBtn.addEventListener('click', () => {
+						ajax('csh_ai_disconnect_account', {}).then(handleResponse);
+					});
+				}
+				if (disconnectBtn) {
+					disconnectBtn.addEventListener('click', () => {
+						ajax('csh_ai_disconnect_account', {}).then(handleResponse);
+					});
+				}
+			}
+
 			window.addEventListener('DOMContentLoaded', () => {
 				const radios = document.querySelectorAll('input[name=\"csh_ai_license_global_settings[allow_deny]\"]');
 				radios.forEach(r => r.addEventListener('change', toggleAiFields));
@@ -341,6 +445,7 @@ ROBOTS;
 					robotsToggle.addEventListener('change', toggleRobotsFields);
 				}
 				toggleRobotsFields();
+				initAccountActions();
 			});
 		})();";
 
@@ -603,14 +708,7 @@ ROBOTS;
 				$settings = wp_parse_args( $override, $settings );
 			}
 		}
-		return wp_parse_args( $settings, [
-			'allow_deny' => 'allow',
-			'payto'      => '',
-			'price'      => '0.10',
-			'distribution' => '',
-			'robots_enabled' => '',
-			'robots_content' => '',
-		] );
+		return wp_parse_args( $settings, self::OPTION_DEFAULTS );
 	}
 
 	/* -----------------------------------------------------------------------
@@ -832,6 +930,197 @@ ROBOTS;
 		}
 		$status = wp_remote_retrieve_response_code( $response );
 		return 200 === $status;
+	}
+
+	public function section_account_intro() {
+		echo wp_kses_post( '<p>' . __( 'Connect your site to the Copyright.sh dashboard to track AI usage and manage payouts without leaving WordPress.', 'copyright-sh-ai-license' ) . '</p>' );
+	}
+
+	public function field_account_status() {
+		$account = $this->get_account_status();
+		$status  = $account['last_status'] ?? 'disconnected';
+		wp_nonce_field( 'csh_ai_account_actions', 'csh_ai_account_nonce' );
+		echo '<div id="csh_ai_account_status" data-status="' . esc_attr( $status ) . '">';
+		switch ( $status ) {
+			case 'connected':
+				printf(
+					'<div class="notice notice-success"><p>%s</p><p>%s</p></div><p><a href="%s" class="button button-primary" target="_blank" rel="noopener">%s</a> <button type="button" class="button" id="csh_ai_disconnect">%s</button></p>',
+					esc_html__( '✅ Connected to Copyright.sh', 'copyright-sh-ai-license' ),
+					esc_html( sprintf( __( 'Account: %1$s · Domain: %2$s', 'copyright-sh-ai-license' ), $account['email'], wp_parse_url( home_url(), PHP_URL_HOST ) ) ),
+					esc_url( 'https://dashboard.copyright.sh' ),
+					esc_html__( 'Open Dashboard', 'copyright-sh-ai-license' ),
+					esc_html__( 'Disconnect', 'copyright-sh-ai-license' )
+				);
+				break;
+			case 'pending':
+				printf(
+					'<div class="notice notice-info"><p>%s</p><p>%s</p></div><p><button type="button" class="button button-primary" id="csh_ai_resend">%s</button> <button type="button" class="button" id="csh_ai_cancel">%s</button></p>',
+					esc_html__( '✉️ Check your email! We sent a magic link to verify your account.', 'copyright-sh-ai-license' ),
+					esc_html__( 'Once verified, your dashboard access will be activated.', 'copyright-sh-ai-license' ),
+					esc_html__( 'Resend Email', 'copyright-sh-ai-license' ),
+					esc_html__( 'Cancel', 'copyright-sh-ai-license' )
+				);
+				break;
+			default:
+				printf(
+					'<p>%s</p><p><label>%s <input type="email" id="csh_ai_account_email" class="regular-text" value="%s" placeholder="you@example.com" /></label></p><p><button type="button" class="button button-primary" id="csh_ai_connect">%s</button></p>',
+					esc_html__( 'Connect to the Copyright.sh dashboard to unlock usage tracking and payouts.', 'copyright-sh-ai-license' ),
+					esc_html__( 'Email address', 'copyright-sh-ai-license' ),
+					esc_attr( $account['email'] ),
+					esc_html__( 'Create account & connect', 'copyright-sh-ai-license' )
+				);
+		}
+		echo '<p class="description">' . esc_html__( 'We recommend using your primary payout email or publisher mailbox. Magic link authentication keeps your account secure without passwords.', 'copyright-sh-ai-license' ) . '</p>';
+		printf( '<input type="hidden" id="csh_ai_account_status_field" name="%1$s[last_status]" value="%2$s" />', esc_attr( self::ACCOUNT_OPTION ), esc_attr( $status ) );
+		echo '</div>';
+	}
+
+	private function get_account_status() {
+		$stored = get_option( self::ACCOUNT_OPTION, [] );
+		return wp_parse_args( $stored, self::ACCOUNT_DEFAULTS );
+	}
+
+	private function update_account_status( array $data ) {
+		$merged = wp_parse_args( $data, self::ACCOUNT_DEFAULTS );
+		update_option( self::ACCOUNT_OPTION, $merged );
+		return $merged;
+	}
+
+	public function ajax_register_account() {
+		check_ajax_referer( 'csh_ai_account_actions', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'copyright-sh-ai-license' ) ], 403 );
+		}
+
+		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		if ( ! $email || ! is_email( $email ) ) {
+			wp_send_json_error( [ 'message' => __( 'Please provide a valid email address.', 'copyright-sh-ai-license' ) ], 400 );
+		}
+
+		$response = wp_remote_post( trailingslashit( $this->get_api_base() ) . 'auth/wordpress-register', [
+			'headers' => [ 'Content-Type' => 'application/json' ],
+			'body'    => wp_json_encode( [
+				'email'           => $email,
+				'domain'          => wp_parse_url( home_url(), PHP_URL_HOST ),
+				'plugin_version'  => CSH_AI_Licensing_Plugin::get_version(),
+				'wordpress_version' => get_bloginfo( 'version' ),
+				'php_version'     => PHP_VERSION,
+			] ),
+			'timeout' => 15,
+		] );
+
+		if ( is_wp_error( $response ) ) {
+			wp_send_json_error( [ 'message' => $response->get_error_message() ], 500 );
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = json_decode( wp_remote_retrieve_body( $response ), true ) ?? [];
+		if ( $code >= 400 ) {
+			wp_send_json_error( [ 'message' => $body['message'] ?? __( 'Registration failed. Please try again later.', 'copyright-sh-ai-license' ) ], $code );
+		}
+
+		$this->update_account_status( [
+			'email'       => $email,
+			'last_status' => 'pending',
+			'last_checked'=> time(),
+		] );
+
+		wp_send_json_success( $body );
+	}
+
+	public function ajax_check_account_status() {
+		check_ajax_referer( 'csh_ai_account_actions', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'copyright-sh-ai-license' ) ], 403 );
+		}
+		$account = $this->get_account_status();
+		if ( empty( $account['email'] ) ) {
+			wp_send_json_error( [ 'message' => __( 'No registration in progress.', 'copyright-sh-ai-license' ) ], 400 );
+		}
+
+		$url  = add_query_arg(
+			[
+				'email'  => rawurlencode( $account['email'] ),
+				'domain' => rawurlencode( wp_parse_url( home_url(), PHP_URL_HOST ) ),
+			],
+			railingslashit( $this->get_api_base() ) . 'auth/wordpress-status'
+		);
+		$response = wp_remote_get( $url, [ 'timeout' => 15 ] );
+		if ( is_wp_error( $response ) ) {
+			wp_send_json_error( [ 'message' => $response->get_error_message() ], 500 );
+		}
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = json_decode( wp_remote_retrieve_body( $response ), true ) ?? [];
+		if ( $code >= 400 ) {
+			wp_send_json_error( [ 'message' => $body['message'] ?? __( 'Status check failed.', 'copyright-sh-ai-license' ) ], $code );
+		}
+
+		if ( ! empty( $body['verified'] ) ) {
+			$this->update_account_status( [
+				'connected'     => true,
+				'creator_id'    => $body['creator_id'] ?? '',
+				'token'         => $body['token'] ?? '',
+				'token_expires' => time() + (int) ( $body['expires_in'] ?? 0 ),
+				'last_status'   => 'connected',
+				'last_checked'  => time(),
+			] );
+		} else {
+			$this->update_account_status( [
+				'last_status'  => 'pending',
+				'last_checked' => time(),
+			] );
+		}
+
+		wp_send_json_success( $body );
+	}
+
+	public function ajax_disconnect_account() {
+		check_ajax_referer( 'csh_ai_account_actions', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'copyright-sh-ai-license' ) ], 403 );
+		}
+		$this->update_account_status( self::ACCOUNT_DEFAULTS );
+		wp_send_json_success();
+	}
+
+	public function maybe_refresh_token() {
+		$account = $this->get_account_status();
+		if ( empty( $account['token'] ) || (int) $account['token_expires'] <= time() + DAY_IN_SECONDS ) {
+			$this->attempt_token_refresh( $account );
+		}
+	}
+
+	private function attempt_token_refresh( array $account ) {
+		if ( empty( $account['token'] ) ) {
+			return;
+		}
+		$response = wp_remote_post( trailingslashit( $this->get_api_base() ) . 'auth/refresh', [
+			'headers' => [ 'Authorization' => 'Bearer ' . $account['token'] ],
+			'timeout' => 15,
+		] );
+		if ( is_wp_error( $response ) ) {
+			return;
+		}
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = json_decode( wp_remote_retrieve_body( $response ), true ) ?? [];
+		if ( $code >= 400 ) {
+			return;
+		}
+		if ( ! empty( $body['token'] ) ) {
+			$this->update_account_status( [
+				'token'         => $body['token'],
+				'token_expires' => time() + (int) ( $body['expires_in'] ?? 0 ),
+			] );
+		}
+	}
+
+	private function get_api_base() {
+		$base = apply_filters( 'csh_ai_api_base_url', 'https://api.copyright.sh/api/v1/' );
+		return trailingslashit( $base );
+	}
+
+	public static function get_version() {
+		return '1.4.2';
 	}
 }
 
