@@ -38,6 +38,11 @@ class CSH_AI_Licensing_Plugin {
 	public const META_KEY = '_csh_ai_license';
 
 	/**
+	 * Option name used to store account status.
+	 */
+	public const ACCOUNT_OPTION = 'csh_ai_license_account_status';
+
+	/**
 	 * Singleton instance.
 	 *
 	 * @var CSH_AI_Licensing_Plugin|null
@@ -54,57 +59,47 @@ class CSH_AI_Licensing_Plugin {
     private $distribution_levels = [ 'private', 'public' ];
 
     /**
-     * Default robots.txt template (with placeholder for sitemap URL).
+     * Get default robots.txt template.
+     *
+     * @return string
      */
-    private const DEFAULT_ROBOTS_TEMPLATE = <<<ROBOTS
-# Copyright.sh Robots.txt - AI Protection Template
-# Block AI training bots while allowing search engines
-
-# Allow search engines
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: DuckDuckBot
-Allow: /
-
-# Block OpenAI
-User-agent: GPTBot
-Disallow: /
-
-User-agent: ChatGPT-User
-Disallow: /
-
-# Block Anthropic
-User-agent: anthropic-ai
-Disallow: /
-
-User-agent: Claude-Web
-Disallow: /
-
-# Block Common Crawl (used by many AI companies)
-User-agent: CCBot
-Disallow: /
-
-# Block other AI/ML bots
-User-agent: PerplexityBot
-Disallow: /
-
-User-agent: YouBot
-Disallow: /
-
-User-agent: Bytespider
-Disallow: /
-
-# Default: Allow all other bots (customise as needed)
-User-agent: *
-Allow: /
-
-# Sitemap location (optional)
-Sitemap: {{sitemap_url}}
-ROBOTS;
+    private function get_default_robots_template() {
+        $template = "# Copyright.sh Robots.txt - AI Protection Template\n";
+        $template .= "# Block AI training bots while allowing search engines\n\n";
+        $template .= "# Allow search engines\n";
+        $template .= "User-agent: Googlebot\n";
+        $template .= "Allow: /\n\n";
+        $template .= "User-agent: Bingbot\n";
+        $template .= "Allow: /\n\n";
+        $template .= "User-agent: DuckDuckBot\n";
+        $template .= "Allow: /\n\n";
+        $template .= "# Block OpenAI\n";
+        $template .= "User-agent: GPTBot\n";
+        $template .= "Disallow: /\n\n";
+        $template .= "User-agent: ChatGPT-User\n";
+        $template .= "Disallow: /\n\n";
+        $template .= "# Block Anthropic\n";
+        $template .= "User-agent: anthropic-ai\n";
+        $template .= "Disallow: /\n\n";
+        $template .= "User-agent: Claude-Web\n";
+        $template .= "Disallow: /\n\n";
+        $template .= "# Block Common Crawl (used by many AI companies)\n";
+        $template .= "User-agent: CCBot\n";
+        $template .= "Disallow: /\n\n";
+        $template .= "# Block other AI/ML bots\n";
+        $template .= "User-agent: PerplexityBot\n";
+        $template .= "Disallow: /\n\n";
+        $template .= "User-agent: YouBot\n";
+        $template .= "Disallow: /\n\n";
+        $template .= "User-agent: Bytespider\n";
+        $template .= "Disallow: /\n\n";
+        $template .= "# Default: Allow all other bots (customise as needed)\n";
+        $template .= "User-agent: *\n";
+        $template .= "Allow: /\n\n";
+        $template .= "# Sitemap location (optional)\n";
+        $template .= "Sitemap: {{sitemap_url}}";
+        return $template;
+    }
 
 	private const OPTION_DEFAULTS = [
 		'allow_deny'      => 'allow',
@@ -340,20 +335,33 @@ ROBOTS;
 	 * Enqueue settings page script.
 	 */
 	private function enqueue_settings_script() {
-		$script = "(() => {
-			function toggleAiFields() {
-				const denyOption = document.querySelector('input[name=\"csh_ai_license_global_settings[allow_deny]\"][value=\"deny\"]');
-				const denyChecked = denyOption ? denyOption.checked : false;
-				const disable = !!denyChecked;
-				const payto = document.querySelector('input[name=\"csh_ai_license_global_settings[payto]\"]');
-				const price = document.querySelector('input[name=\"csh_ai_license_global_settings[price]\"]');
-				const distribution = document.querySelector('select[name=\"csh_ai_license_global_settings[distribution]\"]');
+		$strings = wp_json_encode(
+			[
+				'pendingMessage' => __( 'Magic link sent to %s. We\'ll automatically detect when you verify.', 'copyright-sh-ai-license' ),
+				'genericError'   => __( 'Something went wrong. Please try again.', 'copyright-sh-ai-license' ),
+				'statusError'    => __( 'Unable to check status right now. We\'ll retry shortly.', 'copyright-sh-ai-license' ),
+				'emailRequired'  => __( 'Please enter a valid email address before continuing.', 'copyright-sh-ai-license' ),
+				'registerError'  => __( 'We could not send the magic link. Please try again in a moment.', 'copyright-sh-ai-license' ),
+				'cancelError'    => __( 'Unable to cancel connection. Please refresh and try again.', 'copyright-sh-ai-license' ),
+				'disconnectError'=> __( 'Unable to disconnect right now. Please refresh and try again.', 'copyright-sh-ai-license' ),
+			]
+		);
 
-				[payto, price, distribution].forEach(el => { if (el) el.disabled = disable; });
+		$script = "(() => {
+			window.cshAiStrings = " . $strings . ";
+			const cshAiStrings = window.cshAiStrings;
+			function toggleAiFields() {
+				const denyOption = document.querySelector('input[name=\\"csh_ai_license_global_settings[allow_deny]\\"][value=\\"deny\\"]');
+				const denyChecked = denyOption ? denyOption.checked : false;
+				const payto = document.querySelector('input[name=\\"csh_ai_license_global_settings[payto]\\"]');
+				const price = document.querySelector('input[name=\\"csh_ai_license_global_settings[price]\\"]');
+				const distribution = document.querySelector('select[name=\\"csh_ai_license_global_settings[distribution]\\"]');
+
+				[payto, price, distribution].forEach(el => { if (el) el.disabled = denyChecked; });
 
 				const msg = document.getElementById('csh_ai_policy_message');
 				if (msg) {
-					if (disable) {
+					if (denyChecked) {
 						msg.textContent = 'All AI usage will be denied. The plugin will emit ai-license.txt and meta tags blocking crawlers (optional robots.txt rules if enabled).';
 					} else {
 						msg.textContent = 'Configure distribution, pricing and payment details to allow specific AI usage.';
@@ -362,9 +370,9 @@ ROBOTS;
 			}
 
 			function toggleRobotsFields() {
-				const checkbox = document.querySelector('input[name=\"csh_ai_license_global_settings[robots_enabled]\"]');
+				const checkbox = document.querySelector('input[name=\\"csh_ai_license_global_settings[robots_enabled]\\"]');
 				const container = document.getElementById('csh_ai_robots_fields');
-				const textarea = document.querySelector('textarea[name=\"csh_ai_license_global_settings[robots_content]\"]');
+				const textarea = document.querySelector('textarea[name=\\"csh_ai_license_global_settings[robots_content]\\"]');
 				const helpers = document.querySelectorAll('.csh-ai-robots-helper');
 				const enabled = !!(checkbox && checkbox.checked);
 
@@ -378,21 +386,30 @@ ROBOTS;
 			}
 
 			function initAccountActions() {
+				const root = document.getElementById('csh_ai_account_status');
+				if (!root) { return; }
+
 				const connectBtn = document.getElementById('csh_ai_connect');
 				const resendBtn = document.getElementById('csh_ai_resend');
 				const cancelBtn = document.getElementById('csh_ai_cancel');
 				const disconnectBtn = document.getElementById('csh_ai_disconnect');
 				const statusField = document.getElementById('csh_ai_account_status_field');
-				const noticeArea = document.getElementById('csh_ai_account_status');
+				const noticeArea = root.querySelector('.csh-ai-account-messages');
 				const emailField = document.getElementById('csh_ai_account_email');
 				const nonceField = document.getElementById('csh_ai_account_nonce');
+				const domain = root.dataset.domain;
 				let pollingInterval = null;
 
 				function setLoading(loading) {
-					if (!noticeArea) {
-						return;
-					}
-					noticeArea.classList.toggle('csh-ai-loading', !!loading);
+					root.classList.toggle('csh-ai-loading', !!loading);
+					root.querySelectorAll('button').forEach(btn => {
+						btn.disabled = !!loading;
+					});
+				}
+
+				function showMessage(message, type = 'info') {
+					if (!noticeArea || !message) { return; }
+					noticeArea.innerHTML = `<div class=\"notice notice-${type}\"><p>${message}</p></div>`;
 				}
 
 				function ajax(endpoint, data) {
@@ -400,6 +417,7 @@ ROBOTS;
 					const payload = new URLSearchParams({
 						action: endpoint,
 						nonce: nonceField ? nonceField.value : '',
+						domain: domain || '',
 						...data,
 					});
 					return fetch(ajaxurl, {
@@ -410,12 +428,7 @@ ROBOTS;
 				}
 
 				function handleResponse(resp) {
-					if (!noticeArea || !statusField) {
-						return;
-					}
-					if (!resp) {
-						return;
-					}
+					if (!resp) { return; }
 					if (resp.success) {
 						if (resp.data && resp.data.verified) {
 							statusField.value = 'connected';
@@ -423,14 +436,19 @@ ROBOTS;
 							return;
 						}
 						statusField.value = resp.data?.status || 'pending';
+						showMessage(cshAiStrings.pendingMessage.replace('%s', emailField ? emailField.value : ''), 'info');
 						maybeStartPolling();
 					} else if (resp.data && resp.data.message) {
-						window.alert(resp.data.message);
+						showMessage(resp.data.message, 'error');
+					} else {
+						showMessage(cshAiStrings.genericError, 'error');
 					}
 				}
 
 				function pollStatus() {
-					ajax('csh_ai_check_account_status', {}).then(handleResponse);
+					ajax('csh_ai_check_account_status', {}).then(handleResponse).catch(() => {
+						showMessage(cshAiStrings.statusError, 'error');
+					});
 				}
 
 				function maybeStartPolling() {
@@ -445,22 +463,34 @@ ROBOTS;
 				if (connectBtn) {
 					connectBtn.addEventListener('click', () => {
 						const email = emailField ? emailField.value : '';
-						ajax('csh_ai_register_account', { email }).then(handleResponse);
+						if (!email) {
+							showMessage(cshAiStrings.emailRequired, 'error');
+							return;
+						}
+						ajax('csh_ai_register_account', { email }).then(handleResponse).catch(() => {
+							showMessage(cshAiStrings.registerError, 'error');
+						});
 					});
 				}
 				if (resendBtn) {
 					resendBtn.addEventListener('click', () => {
-						ajax('csh_ai_register_account', { email: emailField ? emailField.value : '' }).then(handleResponse);
+						ajax('csh_ai_register_account', { email: emailField ? emailField.value : '' }).then(handleResponse).catch(() => {
+							showMessage(cshAiStrings.registerError, 'error');
+						});
 					});
 				}
 				if (cancelBtn) {
 					cancelBtn.addEventListener('click', () => {
-						ajax('csh_ai_disconnect_account', {}).then(handleResponse);
+						ajax('csh_ai_disconnect_account', {}).then(() => location.reload()).catch(() => {
+							showMessage(cshAiStrings.cancelError, 'error');
+						});
 					});
 				}
 				if (disconnectBtn) {
 					disconnectBtn.addEventListener('click', () => {
-						ajax('csh_ai_disconnect_account', {}).then(handleResponse);
+						ajax('csh_ai_disconnect_account', {}).then(() => location.reload()).catch(() => {
+							showMessage(cshAiStrings.disconnectError, 'error');
+						});
 					});
 				}
 				maybeStartPolling();
@@ -480,15 +510,19 @@ ROBOTS;
 			});
 		})();";
 
-		// Register an empty stub script to safely attach inline JS without external file.
-		wp_register_script( 'csh-ai-settings-stub', '' , [], '1.4.0', true );
+		wp_register_script( 'csh-ai-settings-stub', '' , [], self::VERSION, true );
 		wp_enqueue_script( 'csh-ai-settings-stub' );
 		wp_add_inline_script( 'csh-ai-settings-stub', $script );
 
-		// Enhanced CSS for settings page
 		$css = '.csh-ai-radio label{display:inline-flex;align-items:center;margin-right:1em;margin-bottom:0.5em;}' .
-			'.notice.inline{margin:5px 0 15px!important;}';
-		wp_register_style( 'csh-ai-settings-style', false, [], '1.4.0' );
+			'.notice.inline{margin:5px 0 15px!important;}' .
+			'.csh-ai-account-section{border:1px solid #ccd0d4;padding:16px;border-radius:6px;background:#fff;max-width:540px;}' .
+			'.csh-ai-account-section .notice{margin:0 0 16px 0;}' .
+			'.csh-ai-account-section .button{margin-right:8px;}' .
+			'.csh-ai-account-section.csh-ai-loading{position:relative;opacity:0.6;}' .
+			'.csh-ai-account-section.csh-ai-loading::after{content:"";position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.4);pointer-events:none;}' .
+			'.csh-ai-account-email{width:100%;max-width:320px;}' ;
+		wp_register_style( 'csh-ai-settings-style', false, [], self::VERSION );
 		wp_enqueue_style( 'csh-ai-settings-style' );
 		wp_add_inline_style( 'csh-ai-settings-style', $css );
 	}
@@ -840,18 +874,7 @@ ROBOTS;
      * robots.txt helper: section intro.
      */
     public function section_robots_intro() {
-		echo '<div class="csh-ai-robots-intro">';
-		echo wp_kses_post( '<p>' . __( 'Enable a curated robots.txt template to block common AI crawlers while still allowing search engines. You can customise the contents before publishing.', 'copyright-sh-ai-license' ) . '</p>' );
-
-		$settings = get_option( self::OPTION_NAME, [] );
-		if ( 'deny' === ( $settings['allow_deny'] ?? '' ) ) {
-			echo wp_kses_post( '<div class="notice notice-warning csh-ai-robots-helper" style="margin-top:1em;"><p>' . __( 'Your global policy is set to deny all AI usage. Robots.txt is optional in this mode — keep it disabled unless you need additional crawler control.', 'copyright-sh-ai-license' ) . '</p></div>' );
-		}
-
-		if ( $this->server_has_robots_file() ) {
-			echo wp_kses_post( '<div class="notice notice-warning csh-ai-robots-helper" style="margin-top:1em;"><p>' . __( 'We detected an existing robots.txt served by your web server or another plugin. Enabling this feature will override that output. If you prefer to keep your existing robots.txt, leave this disabled.', 'copyright-sh-ai-license' ) . '</p></div>' );
-		}
-		echo '</div>';
+        echo wp_kses_post( '<p>' . __( 'Enable a curated robots.txt template to block common AI crawlers while still allowing search engines. You can customise the contents before publishing.', 'copyright-sh-ai-license' ) . '</p>' );
     }
 
     /**
@@ -866,7 +889,6 @@ ROBOTS;
             checked( $enabled, true, false ),
             esc_html__( 'Generate robots.txt rules for AI crawlers (optional)', 'copyright-sh-ai-license' )
         );
-		echo wp_kses_post( '<p class="description">' . __( 'When disabled, your existing robots.txt (WordPress default or server-managed) will remain untouched.', 'copyright-sh-ai-license' ) . '</p>' );
     }
 
     /**
@@ -878,19 +900,15 @@ ROBOTS;
         if ( '' === trim( $current ) ) {
             $current = $this->get_default_robots_template();
         }
-		$enabled = ! empty( $settings['robots_enabled'] );
-		$style   = $enabled ? '' : ' style="display:none;"';
-		echo '<div id="csh_ai_robots_fields"' . $style . '>';
-		printf(
-			'<textarea name="%1$s[robots_content]" rows="18" class="large-text code" %3$s>%2$s</textarea>',
-			esc_attr( self::OPTION_NAME ),
-			esc_textarea( $current ),
-			$enabled ? '' : 'disabled="disabled"'
-		);
-		echo '</div>';
 
-		$desc = __( 'Adjust the template as needed. The sitemap line will automatically update with your site URL. Leave blank to fall back to the recommended default.', 'copyright-sh-ai-license' );
-		echo wp_kses_post( '<p class="description csh-ai-robots-helper"' . ( $enabled ? '' : ' style="display:none;"' ) . '>' . $desc . '</p>' );
+        printf(
+            '<textarea name="%1$s[robots_content]" rows="18" class="large-text code">%2$s</textarea>',
+            esc_attr( self::OPTION_NAME ),
+            esc_textarea( $current )
+        );
+
+        $desc = __( 'Adjust the template as needed. The sitemap line will automatically update with your site URL. Leave blank to fall back to the recommended default.', 'copyright-sh-ai-license' );
+        echo wp_kses_post( '<p class="description">' . $desc . '</p>' );
     }
 
     /**
@@ -929,14 +947,6 @@ ROBOTS;
         return trim( $raw );
     }
 
-    /**
-     * Get default robots template with sitemap placeholder.
-     *
-     * @return string
-     */
-    private function get_default_robots_template() {
-        return $this->replace_robots_placeholders( self::DEFAULT_ROBOTS_TEMPLATE );
-    }
 
     /**
      * Replace template placeholders with runtime values.
@@ -950,17 +960,51 @@ ROBOTS;
         return trim( $replaced ) . "\n";
     }
 
-	private function server_has_robots_file() {
-		if ( file_exists( ABSPATH . 'robots.txt' ) ) {
-			return true;
-		}
+	public function section_account_intro() {
+		echo wp_kses_post( '<p>' . __( 'Connect your site to the Copyright.sh dashboard to track AI usage and manage payouts without leaving WordPress.', 'copyright-sh-ai-license' ) . '</p>' );
+	}
 
-		$response = wp_remote_head( home_url( '/robots.txt' ) );
-		if ( is_wp_error( $response ) ) {
-			return false;
+	public function field_account_status() {
+		$account = $this->get_account_status();
+		$status  = $account['last_status'] ?? 'disconnected';
+		wp_nonce_field( 'csh_ai_account_actions', 'csh_ai_account_nonce' );
+		$domain = wp_parse_url( home_url(), PHP_URL_HOST );
+		echo '<div id="csh_ai_account_status" class="csh-ai-account-section" data-status="' . esc_attr( $status ) . '" data-domain="' . esc_attr( $domain ) . '">';
+		echo '<div class="csh-ai-account-messages"></div>';
+		switch ( $status ) {
+			case 'connected':
+				printf(
+					'<div class="notice notice-success"><p>%s</p><p>%s</p></div><p><a href="%s" class="button button-primary" target="_blank" rel="noopener">%s</a> <button type="button" class="button" id="csh_ai_disconnect">%s</button></p>',
+					esc_html__( '✅ Connected to Copyright.sh', 'copyright-sh-ai-license' ),
+					esc_html( sprintf( __( 'Account: %1$s · Domain: %2$s', 'copyright-sh-ai-license' ), $account['email'], $domain ) ),
+					esc_url( 'https://dashboard.copyright.sh' ),
+					esc_html__( 'Open Dashboard', 'copyright-sh-ai-license' ),
+					esc_html__( 'Disconnect', 'copyright-sh-ai-license' )
+				);
+				echo '<input type="hidden" id="csh_ai_account_email" value="' . esc_attr( $account['email'] ) . '" />';
+				break;
+			case 'pending':
+				printf(
+					'<div class="notice notice-info"><p>%s</p><p>%s</p></div><p><button type="button" class="button button-primary" id="csh_ai_resend">%s</button> <button type="button" class="button" id="csh_ai_cancel">%s</button></p>',
+					esc_html__( '✉️ Check your email! We sent a magic link to verify your account.', 'copyright-sh-ai-license' ),
+					esc_html__( 'Keep this tab open — we will detect verification automatically once you click the link.', 'copyright-sh-ai-license' ),
+					esc_html__( 'Resend Email', 'copyright-sh-ai-license' ),
+					esc_html__( 'Cancel', 'copyright-sh-ai-license' )
+				);
+				echo '<input type="hidden" id="csh_ai_account_email" value="' . esc_attr( $account['email'] ) . '" />';
+				break;
+			default:
+				printf(
+					'<p>%s</p><p><label>%s <input type="email" id="csh_ai_account_email" class="regular-text csh-ai-account-email" value="%s" placeholder="you@example.com" /></label></p><p><button type="button" class="button button-primary" id="csh_ai_connect">%s</button></p>',
+					esc_html__( 'Connect to the Copyright.sh dashboard to unlock usage tracking and payouts.', 'copyright-sh-ai-license' ),
+					esc_html__( 'Email address', 'copyright-sh-ai-license' ),
+					esc_attr( $account['email'] ),
+					esc_html__( 'Create account & connect', 'copyright-sh-ai-license' )
+				);
 		}
-		$status = wp_remote_retrieve_response_code( $response );
-		return 200 === $status;
+		echo '<p class="description">' . esc_html__( 'We recommend using your primary payout email or publisher mailbox. Magic link authentication keeps your account secure without passwords.', 'copyright-sh-ai-license' ) . '</p>';
+		printf( '<input type="hidden" id="csh_ai_account_status_field" name="%1$s[last_status]" value="%2$s" />', esc_attr( self::ACCOUNT_OPTION ), esc_attr( $status ) );
+		echo '</div>';
 	}
 
 	public function section_account_intro() {
