@@ -39,6 +39,12 @@ The plugin implements the Copyright.sh License Grammar Specification v1.5:
 
 ## Changelog
 
+### 1.6.0
+- New WordPress magic-session flow: verifies domains with a single magic link and auto-links to the dashboard
+- Return-to-admin buttons now preserve the plugin settings URL query string for a true one-click round trip
+- WordPress admin detects successful verification immediately with faster polling after you return from the dashboard
+- Backend hardening: fixes for domain auto-linking and JWT validation to prevent 500 errors during verification
+
 ### 1.5.0
 - Added in-dashboard account creation and connection flow (magic link powered)
 - AJAX status polling, token storage, and automatic refresh scheduling
