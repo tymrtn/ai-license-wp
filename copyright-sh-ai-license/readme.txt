@@ -8,114 +8,103 @@ Stable tag:        1.6.2
 License:           GPLv3 or later
 License URI:       https://www.gnu.org/licenses/gpl-3.0.html
 
-Protect and monetize your WordPress content with AI licensing. Works with major AI companies including OpenAI, Anthropic, Google, xAI, Meta, and 100+ other AI models. One-click setup.
+Block AI crawlers OR get paid for your content. You choose. Works with OpenAI, Anthropic, Google, xAI, Meta, and 100+ AI systems. Dead simple setup.
 
 == Description ==
 
-**AI is training on your content RIGHT NOW. Start getting paid today.**
+**Block AI crawlers from scraping your site, or license your content and get paid. Your site, your choice.**
 
-Every hour, AI models from OpenAI, Anthropic, Google, xAI, Meta, Perplexity, and 100+ other companies crawl WordPress sites to train and generate responses. The $2.9 billion AI training dataset market has created unprecedented demand for licensed content, with model training costs up 4,300% since 2020.
+Look, AI companies are crawling your WordPress site right now. ChatGPT, Claude, Gemini, Grok - they're all here, training on your content without asking. This plugin gives you two options: either block them completely, or let them use your content if they pay you.
 
-Until now, only major publishers could negotiate licensing deals. The Copyright.sh AI License plugin changes that — making enterprise-grade AI licensing accessible to every WordPress site owner in under 1 minute.
+Here's what makes this different from every other solution: we do BOTH blocking AND licensing. Most services only do one or the other. We built the infrastructure to do both properly.
 
-= Major Publishers Are Getting Paid – You're Next =
+= Coming Soon: x402 Protocol Enforcement =
 
-The licensing revolution is here:
-• **News Corp**: $250+ million deal with OpenAI for WSJ and Times content
-• **Meta**: Actively negotiating multi-million dollar licensing agreements
-• **Associated Press**: Licensing news content to multiple AI companies
-• **Reddit**: $60 million annual deal for AI training access
-• **EU AI Act**: Now mandates licensed training data across Europe
+We're rolling out automatic crawler blocking via the x402 HTTP status code protocol. When an AI bot hits your site without paying, we'll serve them a 402 Payment Required response with your licensing terms. They either pay up or get nothing.
 
-This is your moment. Join the creator licensing movement before rates standardize.
+Only two systems can do this properly: Cloudflare at the network level, and us at the application level. Everyone else is just adding meta tags and hoping AI companies play nice. We're building enforcement that actually works.
 
-= How It Works – Simple Yet Powerful =
+= The Stick AND The Carrot =
 
-**1. Install & Configure** (5 minutes)
-Install the plugin, set your price per 1,000 tokens (we recommend $0.10 to start), and click "Create account & connect." A magic link arrives in your inbox instantly — click it and you're connected. No copy-pasting, no confusion, no technical knowledge required.
+This plugin already blocks AI crawlers via robots.txt (the stick). Soon we'll add x402 protocol enforcement (bigger stick). But you can also license your content and earn money from AI companies that want to do the right thing (the carrot).
 
-**2. Automatic Protection Everywhere**
-The plugin instantly adds AI-readable license tags to every page:
-• `<meta name="ai-license">` tags in your HTML headers
-• `/ai-license.txt` file at your domain root
-• Per-post overrides for premium content pricing
-• Optional robots.txt to block unwanted AI crawlers
-• **v1.6.2 Magic Link**: One-click email verification, seamless return to WordPress admin
-• Works with all major AI companies: OpenAI (ChatGPT, GPT series), Anthropic (Claude series), Google (Gemini series), xAI (Grok), Meta (Llama), Perplexity, DeepSeek, Alibaba (Qwen), and 100+ AI models
+Most creators don't realize: News Corp got $250M+ from OpenAI. Reddit got $60M/year. The EU AI Act now requires licensed training data. The licensing market exists - it's just been locked to big publishers. Until now.
 
-**3. Get Paid**
-When AI companies use your content for training or inference, they pay your set rate. Track earnings, view usage analytics, and configure payout methods (PayPal, Venmo, Stripe) at dashboard.copyright.sh.
+= How It Actually Works =
 
-= Key Features That Set You Apart =
+**1. Install the plugin** (literally 1 minute)
+Search "Copyright.sh AI License" in your WordPress plugins, install, activate. Done.
 
-✅ **v1.6.2 Magic Link Authentication** – Zero-friction onboarding: email arrives, click link, return to WordPress admin automatically — no tokens, no confusion
-✅ **Dual-Distribution Licensing** – Charge different rates for private (individual) vs public (commercial) AI usage
-✅ **Flexible Pricing Controls** – Set global rates or customize per post/page for premium content
-✅ **Stage-Specific Licensing** – Different terms for inference, training, embedding, and fine-tuning
-✅ **Industry-Standard Grammar** – Uses License Grammar v1.5 specification that major AI companies recognize
-✅ **AI Crawler Blocking** – Optional robots.txt generator blocks unwanted AI bots while preserving Google, Bing, and other search engines
-✅ **Zero Technical Knowledge Required** – If you can install a plugin, you can protect your entire WordPress site
-✅ **Future-Proof Protection** – Works with all major AI companies and automatically supports new models as they launch
-✅ **Instant Dashboard Connection** – Connect to dashboard.copyright.sh without ever leaving WordPress admin
+**2. Pick your approach**
+- Want to block all AI crawlers? Set policy to "Deny" and enable the robots.txt blocker.
+- Want to get paid? Set "Allow", pick a price (we suggest $0.10 per 1K tokens), and connect your account.
+- Want both? You can block most crawlers and whitelist specific ones you want to license to.
 
-= Perfect For =
+**3. It runs automatically**
+The plugin adds machine-readable license declarations to every page:
+- HTML meta tags that AI systems check before crawling
+- /ai-license.txt file at your domain root
+- robots.txt entries that block non-compliant crawlers (optional)
+- Coming soon: x402 HTTP responses that enforce payment requirements
 
-• **Bloggers & Content Creators** – Turn your archive into passive income
-• **News & Magazine Sites** – Follow major publishers in monetizing AI access
-• **Educational Sites** – Ensure fair compensation for knowledge sharing
-• **Niche Experts** – Premium rates for specialized content
-• **E-commerce Sites** – Protect product descriptions and reviews
-• **Portfolio Sites** – Control how AI uses your creative work
+**4. Track what's happening** (if you're licensing)
+Dashboard at dashboard.copyright.sh shows which AI companies are using your content and what you've earned. Set up PayPal, Venmo, or Stripe for payouts.
 
-= The Network Effect – Join the Movement =
+= What You Get =
 
-You're not alone. Copyright.sh is building the world's largest network of AI-licensed content. The more creators join, the more leverage we all have. It's a creators' union for the AI age.
+**Blocking capabilities:**
+- robots.txt generator that blocks 100+ known AI crawlers
+- Preserves Google, Bing, and other search engines (this won't hurt your SEO)
+- Optional - you can block all AI or just the ones that don't pay
+- Coming soon: x402 protocol enforcement that blocks non-payers at the HTTP level
 
-= Why Act Now? =
+**Licensing capabilities:**
+- Set prices per 1,000 tokens (industry standard pricing)
+- Different rates for private vs public usage
+- Per-post pricing overrides for premium content
+- Support for different AI use cases (training, inference, embedding, fine-tuning)
+- Works with OpenAI, Anthropic, Google, xAI, Meta, Perplexity, and 100+ other AI systems
 
-📈 **AI Market Exploding** – $2.9 billion AI training dataset market in 2025, growing to $13.3B by 2034
-💸 **Training Costs Soaring** – Model training costs up 4,300% since 2020, making licensed content essential
-⚖️ **Legal Landscape Shifting** – EU AI Act mandates opt-in consent and training data transparency, US regulations following
-💰 **Early Adopter Advantage** – Set your rates NOW before the market standardizes and competition increases
-🔒 **Protect Your Rights** – Every day without protection is revenue lost forever — AI is crawling your site today
+**Technical stuff:**
+- Uses License Grammar v1.5 specification (the standard AI companies are adopting)
+- Magic link authentication - no passwords, no API keys to copy-paste
+- Clean code, minimal performance impact
+- Compatible with all major caching plugins
 
-= Works With All Major AI Companies =
+= Who Should Use This =
 
-This plugin implements industry-standard licensing that AI companies recognize:
+Honestly? Anyone with a WordPress site that AI companies might be scraping.
 
-• **OpenAI** – ChatGPT, GPT series, and reasoning models
-• **Anthropic** – Claude series (all versions)
-• **Google** – Gemini series and DeepMind models
-• **xAI** – Grok series
-• **Meta** – Llama series (open-source models)
-• **Perplexity** – AI-powered search and answer engines
-• **DeepSeek** – Reasoning and research models
-• **Alibaba** – Qwen series
-• **Microsoft** – Copilot and Azure AI models
-• **All MCP-compatible systems** – Model Context Protocol support
+- **Bloggers**: Your old posts are training ChatGPT right now. Either block that or get paid for it.
+- **News sites**: The big publishers are all licensing. You should too.
+- **Niche experts**: Got specialized knowledge? That's worth more to AI companies.
+- **Anyone who wants to block AI**: You don't have to license. You can just block all AI crawlers completely.
 
-As new AI companies and models emerge, they automatically recognize the same licensing standard. Your protection is future-proof.
+= Why This Matters =
 
-= What's Included =
+The AI training data market is real. News Corp got $250M+. Reddit got $60M/year. The EU AI Act now mandates licensed training data. This isn't hypothetical - it's happening.
 
-• **v1.6.2 Magic Link Authentication** – Zero-friction email verification with automatic return to WordPress admin
-• Global license configuration dashboard with recommended pricing
-• Per-post/page override controls for premium content
-• Automatic AI-license meta tag injection on every page
-• AI-license.txt file generation at domain root
-• Optional robots.txt bot blocking (preserves Google, Bing, other search engines)
-• One-click dashboard connection without leaving WordPress
-• Clean, optimized code with zero bloat (minimal performance impact)
-• Regular updates as AI licensing standards evolve
-• Full documentation, FAQs, and WordPress.org community support
+The difference is that until now, only massive publishers could negotiate these deals. This plugin gives individual site owners the same tools.
 
-= Join the Creator Licensing Revolution =
+But here's the thing: you don't have to license your content. If you just want to block AI companies from using your stuff, this plugin does that too. It's your site, your content, your choice.
 
-Don't let AI companies profit from your work without compensation. Major publishers like News Corp are earning $250+ million — now it's your turn.
+= What Makes This Different =
 
-Install Copyright.sh AI License today and start getting paid from every AI interaction with your content.
+Most AI licensing services are just adding meta tags and hoping AI companies respect them. We're building actual enforcement:
 
-**Remember**: AI is crawling your WordPress site RIGHT NOW. Every day without protection is revenue lost forever. Make sure AI pays for what it takes.
+1. **robots.txt blocking** (available now) - Blocks 100+ known AI crawlers
+2. **x402 protocol enforcement** (coming soon) - HTTP-level blocking that forces payment
+3. **Network-level protection** - Working with Cloudflare for enterprise customers
+
+Only two systems can properly enforce AI crawler blocking: Cloudflare at the network edge, and us at the application level. Everyone else is just asking nicely.
+
+= AI Systems That Work With This =
+
+The plugin uses License Grammar v1.5, which is becoming the standard format for AI licensing:
+
+OpenAI (ChatGPT, GPT models), Anthropic (Claude), Google (Gemini), xAI (Grok), Meta (Llama), Perplexity, Microsoft (Copilot), DeepSeek, Alibaba (Qwen), and 100+ other AI systems.
+
+As new AI companies launch, they're adopting the same standard. Your protection scales automatically.
 
 == Installation ==
 
@@ -136,92 +125,99 @@ Install Copyright.sh AI License today and start getting paid from every AI inter
 5. Activate the plugin
 6. Go to Settings → AI License to configure
 
-= First Time Setup (5 Minutes) =
+= First Time Setup =
 
-After activation:
+After you activate the plugin:
+
 1. Go to Settings → AI License
-2. Choose "Allow" (get paid) or "Deny" (block AI entirely) as your default policy
-3. Set your price per 1,000 tokens (we recommend starting with $0.10)
-4. Click "Create account & connect" to receive a magic link in your inbox
-5. **v1.6.2**: Click the magic link in your email — you'll be logged into the dashboard and automatically returned to WordPress admin
-6. Optionally enable robots.txt to block unwanted AI crawlers (preserves Google/Bing)
-7. Save changes – you're protected! Start earning from AI usage immediately.
+2. Pick your approach:
+   - **Block everything**: Set policy to "Deny" and enable the robots.txt blocker
+   - **Get paid**: Set to "Allow", pick a price (try $0.10 per 1K tokens), and connect your account
+3. If licensing: Click "Create account & connect" and check your email for the magic link
+4. Click the magic link - you'll be logged into the dashboard and sent back to WordPress automatically
+5. Save your settings
+
+That's it. The plugin handles everything else automatically.
+
+**Pro tip**: Enable the robots.txt blocker even if you're licensing. Block the crawlers that don't pay, allow the ones that do.
 
 == Frequently Asked Questions ==
 
-= How does this protect my content? =
+= How does this actually protect my content? =
 
-The plugin adds machine-readable `<meta name="ai-license">` tags to your HTML headers and creates an `/ai-license.txt` file at your domain root. These industry-standard license declarations tell AI systems from OpenAI, Anthropic, Google, xAI, Meta, Perplexity, and 100+ other companies your licensing terms and payment requirements. When AI companies crawl your site, they must either pay your rate or skip your content — protecting you from unauthorized AI training and inference.
+Two ways:
 
-= Will this affect my SEO or search rankings? =
+1. **Blocking** (available now): The plugin generates robots.txt rules that block 100+ known AI crawlers. Coming soon: x402 HTTP responses that enforce payment requirements at the protocol level.
 
-No! The plugin only affects AI training bots, not search engines. In fact, our optional robots.txt feature specifically allows Google, Bing, and other search engines while blocking AI scrapers.
+2. **Licensing** (available now): Adds machine-readable license declarations (`<meta name="ai-license">` tags and `/ai-license.txt` file) that AI companies check before using your content. If they respect the license, they pay your rate. If they don't, you have legal standing.
 
-= How do I get paid? =
+The key is we do BOTH. Most services only do one.
 
-Click "Create account & connect" in the plugin settings. **v1.6.2** sends a magic link to your inbox — click it and you're instantly logged into your dashboard.copyright.sh account, then automatically returned to WordPress admin. No copy-pasting, no confusion. In the dashboard, add your payout method (PayPal, Venmo, Stripe). Earnings accumulate under your domain name even before you register, so you won't lose any revenue!
+= Will this mess up my SEO? =
 
-= What's the difference between public and private distribution? =
+No. The robots.txt blocker specifically preserves Google, Bing, and other search engines. It only blocks AI training crawlers. Your search rankings won't be affected.
 
-• **Private**: AI can use your content for individual users only (like answering a single person's question)
-• **Public**: AI can use your content for commercial purposes (like generating content for many users)
+= How do I actually get paid? =
 
-You can charge different rates for each type of usage.
+If you're licensing (not just blocking):
 
-= Can I set different prices for different posts? =
+1. Click "Create account & connect" in plugin settings
+2. Check your email for the magic link
+3. Click the link - you're logged into dashboard.copyright.sh and sent back to WordPress
+4. In the dashboard, add your payout method (PayPal, Venmo, Stripe)
 
-Yes! While you set a global default in Settings, you can override the license on any individual post or page using the "AI License Override" meta box in the editor.
+Earnings accumulate under your domain even before you connect, so you won't lose revenue if you set up the plugin first and connect later.
 
-= Do AI companies actually pay? =
+= What's private vs public distribution? =
 
-Yes. The $2.9 billion AI training dataset market proves licensed content is essential. News Corp's $250+ million OpenAI deal, Meta's active licensing negotiations, and the EU AI Act mandate demonstrate that AI companies MUST license content. As legal pressure increases and more creators join Copyright.sh, compliance becomes non-negotiable. Major publishers are getting paid — you should too.
+**Private**: AI uses your content to answer one person's question (like ChatGPT responding to a user)
+**Public**: AI uses your content for commercial purposes or many users (like generating blog posts)
 
-= Is this compatible with caching plugins? =
+You can charge different rates for each. Most people charge more for public use.
 
-Yes! The meta tags are added at the PHP level, so they work with all major caching plugins including WP Rocket, W3 Total Cache, and WP Super Cache.
+= Can I charge different amounts for different posts? =
 
-= Can I block all AI without setting prices? =
+Yep. Set a global default in Settings, then override it on specific posts using the "AI License Override" meta box in the post editor. Good for premium content.
 
-Absolutely. Just set the policy to "Deny" and all AI usage will be blocked. You can also use our robots.txt generator for additional protection.
+= Do AI companies actually respect this? =
 
-= Which AI models does this work with in 2025? =
+Some do, some don't - that's why we're building enforcement layers:
 
-The plugin uses License Grammar v1.5, an industry-standard format recognized by all major AI companies:
+1. **Right now**: Legal standing. If they use your content without respecting your license, you have grounds to sue.
+2. **Coming soon**: x402 protocol enforcement that blocks non-payers at the HTTP level.
+3. **Market pressure**: News Corp got $250M+, Reddit got $60M/year, EU AI Act mandates licensing. The trend is clear.
 
-**Major AI Companies:**
-- OpenAI (ChatGPT and GPT series)
-- Anthropic (Claude series)
-- Google (Gemini series)
-- xAI (Grok series)
-- Meta (Llama open-source models)
-- Microsoft (Copilot, Azure AI)
-- Perplexity (AI search engines)
-- And 100+ other AI systems
+The blocking features work regardless of whether AI companies "respect" anything. Block them in robots.txt, they can't easily scrape you.
 
-**How It Works:**
-When AI companies crawl your site, they check for machine-readable license declarations. Major AI providers increasingly respect these licenses as:
-- Legal pressure mounts (News Corp, NY Times lawsuits)
-- Licensing becomes industry standard ($2.9B market)
-- EU AI Act mandates opt-in consent and training data transparency
+= Can I just block AI completely without licensing? =
 
-**Future-Proof Design:**
-The plugin uses the MCP (Model Context Protocol) standard. As new AI models launch, they adopt the same standard—your content stays protected automatically.
+Yes. Set policy to "Deny" and enable the robots.txt blocker. You don't have to license anything - blocking is a completely valid choice.
 
 = Will this slow down my site? =
 
-No. The plugin is highly optimized and only adds a single meta tag to your HTML head. There's virtually no performance impact.
+No. The plugin adds one meta tag to your HTML head. Performance impact is basically zero. Works fine with all major caching plugins (WP Rocket, W3 Total Cache, etc).
 
 = What if I already have a robots.txt file? =
 
-The plugin's robots.txt feature is optional. If you already manage robots.txt through your server or another plugin, you can leave this feature disabled.
+The plugin's robots.txt feature is optional. If you manage robots.txt another way, just leave that feature disabled.
 
-= Do I need to leave WordPress to connect? =
+= Which AI systems does this work with? =
 
-No! **v1.6.2 eliminates all friction**. Enter your email in the plugin settings, click "Create account & connect," and we send a magic link to your inbox. Click the link, you're logged into the dashboard, then automatically returned to your WordPress admin — zero copy-pasting, zero confusion, zero technical knowledge required. It's the smoothest onboarding in WordPress plugin history.
+The plugin uses License Grammar v1.5, which is becoming the industry standard:
 
-= Is this really worth my time? =
+OpenAI (ChatGPT), Anthropic (Claude), Google (Gemini), xAI (Grok), Meta (Llama), Microsoft (Copilot), Perplexity, DeepSeek, Alibaba (Qwen), and 100+ other AI systems.
 
-**Yes.** Consider this: AI models from OpenAI, Anthropic, Google, xAI, Meta, and 100+ other companies are crawling your WordPress site RIGHT NOW. They're using your content to train billion-dollar models and generate responses — without paying you a cent. The $2.9 billion AI training dataset market (growing to $13.3B by 2034) proves AI companies NEED licensed content. News Corp earned $250+ million from one deal. Meta is actively negotiating licensing agreements. The EU AI Act now mandates opt-in consent and training data transparency, giving creators legal leverage. This plugin takes 1 minute to install and protects your entire WordPress site forever. The question isn't "Is it worth my time?" — it's "Can I afford to wait another day?"
+New AI companies are adopting the same standard, so your protection scales automatically.
+
+= Is this actually worth setting up? =
+
+Look, AI companies are scraping your site right now. You have three options:
+
+1. Do nothing (they scrape for free)
+2. Block them completely (valid choice)
+3. License your content and get paid
+
+This plugin handles options 2 and 3. Takes about 5 minutes to set up. Your call.
 
 == Screenshots ==
 
