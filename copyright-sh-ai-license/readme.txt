@@ -1,6 +1,6 @@
 === Copyright.sh – AI License ===
 Contributors:      copyrightsh
-Tags:              ai, chatgpt, openai, anthropic, google, perplexity, ai-licensing, content-protection, monetization
+Tags:              copyright, ai-license, licensing, content-licensing, robots-txt, ai-protection, copyright-protection, chatgpt, claude, gemini
 Requires at least: 6.2
 Tested up to:      6.8
 Requires PHP:      7.4
@@ -8,7 +8,7 @@ Stable tag:        1.6.2
 License:           GPLv3 or later
 License URI:       https://www.gnu.org/licenses/gpl-3.0.html
 
-Block AI crawlers OR get paid for your content. You choose. Works with OpenAI, Anthropic, Google, xAI, Meta, and 100+ AI systems. Dead simple setup.
+Copyright protection and AI content licensing for WordPress. Block AI crawlers via robots.txt OR license your content and get paid. Works with ChatGPT, Claude, Gemini, and 100+ AI systems.
 
 == Description ==
 
