@@ -14,15 +14,21 @@ Copyright protection and AI content licensing for WordPress. Block AI crawlers v
 
 **Block AI crawlers from scraping your site, or license your content and get paid. Your site, your choice.**
 
-Look, AI companies are crawling your WordPress site right now. ChatGPT, Claude, Gemini, Grok - they're all here, training on your content without asking. This plugin gives you two options: either block them completely, or let them use your content if they pay you.
+AI companies are crawling your WordPress site right now. ChatGPT, Claude, Gemini, Grok - they're all here, training on your content without asking. This plugin gives you two options: either block them with robots.txt, or add machine-readable licensing terms so compliant AI companies can pay you.
 
-Here's what makes this different from every other solution: we do BOTH blocking AND licensing. Most services only do one or the other. We built the infrastructure to do both properly.
+Here's what makes this different: we do BOTH blocking AND licensing. Most services only do one or the other. We built the infrastructure to do both properly.
 
-= Coming Soon: x402 Protocol Enforcement =
+= The Reality of AI Crawler Blocking =
 
-We're rolling out automatic crawler blocking via the x402 HTTP status code protocol. When an AI bot hits your site without paying, we'll serve them a 402 Payment Required response with your licensing terms. They either pay up or get nothing.
+**robots.txt is a voluntary standard** - While OpenAI and Anthropic claim to respect robots.txt, the reality is more complex. Recent investigations by TollBit and Cloudflare found evidence of major AI companies bypassing blocks, and Perplexity was caught using undisclosed IPs to scrape sites that blocked their official crawler. Industry data shows 12.9% of bots now ignore robots.txt (up from 3.3%), with 26 million bypasses in March 2025 alone.
 
-Only two systems can do this properly: Cloudflare at the network level, and us at the application level. Everyone else is just adding meta tags and hoping AI companies play nice. We're building enforcement that actually works.
+**Why blocking still matters**: Even as a voluntary measure, robots.txt raises the legal and technical barrier. It establishes clear notice of your access terms, strengthening your legal position if you need to enforce your rights. Most legitimate AI companies do respect it - but you need backup enforcement.
+
+= Coming Soon: HTTP 402 "Payment Required" Protocol =
+
+We're implementing the HTTP 402 "Payment Required" status code protocol. When an AI bot hits your site without a valid license, we'll serve a 402 response with your licensing terms in machine-readable format.
+
+**Transparency**: This is also a voluntary protocol. Cloudflare launched their "Pay Per Crawl" implementation on July 1, 2025, and now serves over 1 billion 402 responses daily - but it's currently in private beta limited to select major publications. Like robots.txt, HTTP 402 requires AI companies to cooperate. The difference is it's newer, more standardized, and creates clearer legal standing for enforcement.
 
 = The Stick AND The Carrot =
 
@@ -32,15 +38,15 @@ Most creators don't realize: News Corp got $250M+ from OpenAI. Reddit got $60M/y
 
 = Why WordPress Creators Need This Now =
 
-**The old web is dying.** SEO doesn't matter when ChatGPT and Gemini give zero-click answers using your content. Ad revenue collapses when AI companies scrape your articles and serve them to users who never visit your site. The business models powering the independent web - ads and subscriptions - are disintegrating with every AI release.
+**The traffic apocalypse is real.** In 2025, 60% of Google searches end without any click to external sites - up from 44.2% just a year ago. When users do click, only 360 clicks per 1,000 searches go to the open web (374 in EU). The rest? 14.3% go to Google-owned properties like YouTube and Maps. For the first time in a decade, Google now keeps 90% of its ad revenue internally, with only 10% going to network publishers.
 
-**AI content licensing is the answer.** While social media captured one generation of human creativity, and tech giants bought up the rest, WordPress remains the last great bastion of independent publishing that hasn't been captured. It's where 43% of the web lives. It's where creators still own their content.
+This isn't theoretical - it's happening right now. ChatGPT and Gemini answer questions using your content, but users never visit your site. Your ad revenue collapses. Your subscription model breaks when AI gives your insights away for free.
 
-This is where we make our stand.
+**AI content licensing is the survival strategy.** The big publishers already figured this out. News Corp got over $250M from OpenAI (5-year deal). Reddit: $60M/year. Nine major publishers have signed deals including Financial Times, Associated Press, Le Monde, and Axel Springer. Meanwhile, individual WordPress site owners - the backbone of the open web - get nothing while AI companies scrape freely.
 
-The big publishers already figured this out. News Corp: $250M+. Reddit: $60M/year. Financial Times, Associated Press, Axel Springer - they're all cutting deals. Meanwhile, individual WordPress site owners - the backbone of the open web - get nothing while AI companies scrape freely.
+**WordPress is where we make our stand.** Dave Winer, who invented blogging 30 years ago and co-created RSS, is now championing WordPress as the foundation for the independent web's renaissance. In his 2025 writings and WordCamp Canada keynote, he argues that WordPress represents the "read/write web" Tim Berners-Lee originally envisioned - where creators own their content and control their distribution. While social media captured one generation of creativity and tech giants bought up the rest, WordPress remains the last great bastion of independent publishing. It's where 43% of the web lives. It's where creators still own their content.
 
-**That changes today.**
+That changes today.
 
 = EU AI Act Compliance =
 
@@ -63,7 +69,7 @@ We've built the first true content licensing infrastructure for AI:
 
 **Immutable ledger** - When AI companies use your content, it's logged with cryptographic verification. This creates legal standing if you need to enforce your terms. It's not just "hoping they comply" - it's building an audit trail.
 
-**Smart enforcement** - robots.txt blocks non-compliant crawlers today. The upcoming x402 protocol forces payment at the HTTP level. And we're working with Cloudflare for network-level enforcement for enterprise customers.
+**Layered protection** - robots.txt provides the first barrier (voluntary but creates legal notice). Machine-readable licenses give compliant AI companies clear terms. The upcoming HTTP 402 protocol adds standardized payment signaling. Each layer strengthens your legal position.
 
 = How It Actually Works =
 
@@ -88,10 +94,10 @@ Dashboard at dashboard.copyright.sh shows which AI companies are using your cont
 = What You Get =
 
 **Blocking capabilities:**
-- robots.txt generator that blocks 100+ known AI crawlers
-- Preserves Google, Bing, and other search engines (this won't hurt your SEO)
+- robots.txt generator that blocks 100+ known AI crawlers (voluntary standard, but creates legal notice)
+- Preserves Google, Bing, and other search engines (won't hurt your search rankings)
 - Optional - you can block all AI or just the ones that don't pay
-- Coming soon: x402 protocol enforcement that blocks non-payers at the HTTP level
+- Coming soon: HTTP 402 protocol support for standardized payment signaling
 
 **Licensing capabilities:**
 - Set prices per 1,000 tokens (industry standard pricing)
@@ -130,15 +136,15 @@ The difference is that until now, only massive publishers could negotiate these 
 
 But here's the thing: you don't have to license your content. If you just want to block AI companies from using your stuff, this plugin does that too. It's your site, your content, your choice.
 
-= What Makes This Different =
+= What Makes This Different: Competitor Comparison =
 
-Most AI licensing services are just adding meta tags and hoping AI companies respect them. We're building actual enforcement:
+**Cloudflare Pay Per Crawl**: Launched July 2025, technically impressive - BUT it's in private beta limited to select major publications (Ziff Davis, The Atlantic). If you're not already on Cloudflare's network or invited to their program, you can't use it. Great for enterprise, not accessible for individual creators.
 
-1. **robots.txt blocking** (available now) - Blocks 100+ known AI crawlers
-2. **x402 protocol enforcement** (coming soon) - HTTP-level blocking that forces payment
-3. **Network-level protection** - Working with Cloudflare for enterprise customers
+**TollBit**: Requires setting up a subdomain (tollbit.example.com) and routing all your AI traffic through their infrastructure. 2000+ publications, $7M in funding, solid product - BUT significant technical overhead and you lose direct control of your content delivery. Their investigation ironically revealed that major AI companies bypass robots.txt even while claiming to respect it.
 
-Only two systems can properly enforce AI crawler blocking: Cloudflare at the network edge, and us at the application level. Everyone else is just asking nicely.
+**RSL Protocol (Robots Sitemaps Licensing)**: Launched September 2025, backed by Dave Winer (RSS co-creator) and major publishers including Reddit and Yahoo. Technically solid emerging standard - BUT it's still Version 1.0 Draft. We're watching it closely and will support it once it's widely adopted by AI companies. Great idea, early days.
+
+**What we do differently**: We give you both the stick (robots.txt blocking) and the carrot (licensing with payment) in a single WordPress plugin. No subdomain required. No network dependency. No waiting for private beta access. Install, configure, done. When RSL Protocol and HTTP 402 become industry standards, we'll support them. Until then, we give you the best tools available today.
 
 = AI Systems That Work With This =
 
@@ -187,17 +193,23 @@ That's it. The plugin handles everything else automatically.
 
 = How does this actually protect my content? =
 
-Two ways:
+**Honestly? It's a mix of technical barriers and legal standing.**
 
-1. **Blocking** (available now): The plugin generates robots.txt rules that block 100+ known AI crawlers. Coming soon: x402 HTTP responses that enforce payment requirements at the protocol level.
+1. **robots.txt blocking** (available now): Generates rules that block 100+ known AI crawlers. This is a voluntary standard - while OpenAI and Anthropic claim to respect it, industry data shows 12.9% of bots ignore robots.txt (up from 3.3% a year ago). Perplexity was caught bypassing blocks entirely. BUT even as a voluntary measure, it raises the legal and technical barrier and establishes clear notice of your access terms.
 
-2. **Licensing** (available now): Adds machine-readable license declarations (`<meta name="ai-license">` tags and `/ai-license.txt` file) that AI companies check before using your content. If they respect the license, they pay your rate. If they don't, you have legal standing.
+2. **Machine-readable licensing** (available now): Adds `<meta name="ai-license">` tags and `/ai-license.txt` file using License Grammar v1.5. AI companies that want to operate legally can check your terms and pay your rates. If they don't, you have clear legal standing to enforce your rights - you explicitly stated your terms in a machine-readable format they can't claim to have missed.
 
-The key is we do BOTH. Most services only do one.
+3. **HTTP 402 protocol** (coming soon): When an AI bot hits your site, we'll serve a 402 "Payment Required" response with your licensing terms. Like robots.txt, this is voluntary - but it's newer, more standardized, and creates even clearer legal standing.
+
+The key is we do BOTH technical blocking AND legal licensing. Most services only do one.
 
 = Will this mess up my SEO? =
 
-No. The robots.txt blocker specifically preserves Google, Bing, and other search engines. It only blocks AI training crawlers. Your search rankings won't be affected.
+No - the plugin preserves Google, Bing, and other search engines. It only blocks AI training crawlers.
+
+But let's be real: **traditional SEO is dying anyway.** In 2025, 60% of Google searches end without any click to external sites. When users do click, only 360 clicks per 1,000 searches go to the open web. Google now keeps 90% of its ad revenue internally (first time in a decade), with only 10% going to network publishers.
+
+AI is replacing search - ChatGPT and Gemini answer questions using your content without sending traffic. This plugin helps you adapt: either block AI from using your content, or license it and get paid. Because traffic isn't coming back.
 
 = How do I actually get paid? =
 
@@ -223,13 +235,19 @@ Yep. Set a global default in Settings, then override it on specific posts using 
 
 = Do AI companies actually respect this? =
 
-Some do, some don't - that's why we're building enforcement layers:
+**The truth: it's mixed, and improving.**
 
-1. **Right now**: Legal standing. If they use your content without respecting your license, you have grounds to sue.
-2. **Coming soon**: x402 protocol enforcement that blocks non-payers at the HTTP level.
-3. **Market pressure**: News Corp got $250M+, Reddit got $60M/year, EU AI Act mandates licensing. The trend is clear.
+OpenAI and Anthropic officially respect robots.txt, but investigations by TollBit and Cloudflare have found evidence of bypassing on news sites. Perplexity was definitively caught using undisclosed IPs and spoofed user agents to bypass blocks. Meta's facebookexternalhit doesn't respect robots.txt at all (their position: it's not a "crawler").
 
-The blocking features work regardless of whether AI companies "respect" anything. Block them in robots.txt, they can't easily scrape you.
+BUT the trend is toward compliance because:
+
+1. **Legal risk**: The EU AI Act now mandates opt-out respect and licensing documentation. Nine major publishers have signed licensing deals (News Corp $250M+, Reddit $60M/year). The legal precedent is clear.
+
+2. **Market incentives**: AI companies that want premium content are now paying for it. They're realizing licensed data is legally safer and often higher quality than scraped data.
+
+3. **Technical barriers**: While no blocking is perfect, robots.txt + HTTP 402 + machine-readable licenses create multiple layers that make unauthorized scraping legally riskier and technically harder.
+
+Our approach: give you the tools to block, license, and build legal standing. Perfect enforcement doesn't exist yet, but we're building toward it.
 
 = Can I just block AI completely without licensing? =
 
