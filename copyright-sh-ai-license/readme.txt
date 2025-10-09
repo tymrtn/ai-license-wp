@@ -221,11 +221,13 @@ This plugin handles options 2 and 3. Takes about 5 minutes to set up. Your call.
 
 == Screenshots ==
 
-1. Global settings page - Configure your default AI licensing policy
-2. Per-post override - Set custom licensing for individual content
-3. AI-license meta tag in action - See exactly what AI companies see
-4. Dashboard preview - Track your earnings at dashboard.copyright.sh
-5. Robots.txt editor - Block AI crawlers while preserving SEO
+1. Dashboard connection - Connect your WordPress site to Copyright.sh for usage tracking and payments
+2. Robots.txt editor - Block AI crawlers while preserving search engine access
+3. Global settings page - Configure your default AI licensing policy with pricing and payment details
+4. Connected state overview - See your active connection status and domain configuration
+5. How pricing works - Example showing the meta tag format AI companies read
+6. Understanding distribution - Learn the difference between private and public AI usage
+7. Understanding AI stages - See how different AI use cases (train, infer, embed, tune) work
 
 == Changelog ==
 
