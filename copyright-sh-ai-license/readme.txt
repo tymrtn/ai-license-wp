@@ -138,19 +138,23 @@ But here's the thing: you don't have to license your content. If you just want t
 
 = What Makes This Different: Competitor Comparison =
 
-**Cloudflare Pay Per Crawl**: Launched July 2025, technically impressive - BUT it's in private beta limited to select major publications (Ziff Davis, The Atlantic). If you're not already on Cloudflare's network or invited to their program, you can't use it. Great for enterprise, not accessible for individual creators.
+**Cloudflare Pay Per Crawl**: Launched July 2025, enables website owners to charge AI crawlers per request. While technically sound, it's limited to Cloudflare's network infrastructure and uses a flat-rate pricing model that doesn't account for content value variations. Major limitation: Only works if you're already on Cloudflare's platform and restricted to high value customers.
 
-**TollBit**: Requires setting up a subdomain (tollbit.example.com) and routing all your AI traffic through their infrastructure. 2000+ publications, $7M in funding, solid product - BUT significant technical overhead and you lose direct control of your content delivery. Their investigation ironically revealed that major AI companies bypass robots.txt even while claiming to respect it.
+**TollBit**: AI content licensing platform that requires heavy configuration and subdomain setup (tollbit.example.com) and routes AI traffic through their infrastructure. Good for enterprise publishers but creates technical overhead and dependency on their network for content delivery.
 
-**RSL Protocol (Robots Sitemaps Licensing)**: Launched September 2025, backed by Dave Winer (RSS co-creator) and major publishers including Reddit and Yahoo. Technically solid emerging standard - BUT it's still Version 1.0 Draft. We're watching it closely and will support it once it's widely adopted by AI companies. Great idea, early days.
+**Perplexity Comet Plus**: The $5/month subscription service that validates the whole business model of content licensing. Perplexity shares 80% of the revenue they charge Comet Plus customers with publishers based on human visits and AI interactions. Revenue-sharing model is innovative, but success depends entirely on user subscription adoption and limited to Perplexity's ecosystem.
 
-**What we do differently**: We give you both the stick (robots.txt blocking) and the carrot (licensing with payment) in a single WordPress plugin. No subdomain required. No network dependency. No waiting for private beta access. Install, configure, done. When RSL Protocol and HTTP 402 become industry standards, we'll support them. Until then, we give you the best tools available today.
+**RSL Protocol (Really Simple Licensing)**: Open standard for publishers to set explicit licenses and fees for AI content use. Supported by Reddit, Yahoo, and other major platforms. Technically solid but again requires learning a custom XML schema and lacks customizability on a per page basis. RSL is still in early adoption phase (i.e. not available) and requires AI companies to implement the protocol.
+
+**What we do differently**: We provide both content protection (robots.txt blocking) and monetization (licensing with payment) in a single WordPress plugin. No subdomain required, no network dependency, no platform lock-in. Works with any hosting provider you run Wordpress from. Install, configure (or don't), done. 
+
+If/when RSL Protocol becomes widely adopted, we'll support it too. Until then, we give you the most accessible and comprehensive AI content licensing solution available today.
 
 = AI Systems That Work With This =
 
-The plugin uses License Grammar v1.5, which is becoming the standard format for AI licensing:
+The plugin uses the Copyrightish AI-License Grammar v1.5, which is becoming the standard format for AI licensing:
 
-OpenAI (ChatGPT, GPT models), Anthropic (Claude), Google (Gemini), xAI (Grok), Meta (Llama), Perplexity, Microsoft (Copilot), DeepSeek, Alibaba (Qwen), and 100+ other AI systems.
+Served via MCP plugin, compatible with OpenAI (ChatGPT, GPT models), Anthropic (Claude), Google (Gemini), xAI (Grok), Meta (Llama), Perplexity, Microsoft (Copilot), DeepSeek, Alibaba (Qwen), and 100+ other AI systems.
 
 As new AI companies launch, they're adopting the same standard. Your protection scales automatically.
 
