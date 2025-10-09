@@ -69,7 +69,14 @@ Dashboard at dashboard.copyright.sh shows which AI companies are using your cont
 - Uses License Grammar v1.5 specification (the standard AI companies are adopting)
 - Magic link authentication - no passwords, no API keys to copy-paste
 - Clean code, minimal performance impact
-- Compatible with all major caching plugins
+- Compatible with all major caching and SEO plugins
+
+**Works seamlessly with:**
+- WP Rocket, W3 Total Cache, WP Super Cache, LiteSpeed Cache
+- Yoast SEO, Rank Math, All in One SEO
+- Elementor, Divi, Beaver Builder
+- WooCommerce, Easy Digital Downloads
+- Multisite installations
 
 = Who Should Use This =
 
