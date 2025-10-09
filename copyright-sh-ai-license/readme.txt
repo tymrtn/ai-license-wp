@@ -1,6 +1,6 @@
-=== Copyright.sh – AI License ===
+=== Copyright AI Content Licensing – Block AI Crawlers + Get Paid ===
 Contributors:      copyrightsh
-Tags:              copyright, ai-license, licensing, content-licensing, robots-txt, ai-protection, copyright-protection, chatgpt, claude, gemini
+Tags:              ai-license, copyright, robots-txt, content-licensing, chatgpt
 Requires at least: 6.2
 Tested up to:      6.8
 Requires PHP:      7.4
@@ -29,6 +29,41 @@ Only two systems can do this properly: Cloudflare at the network level, and us a
 This plugin already blocks AI crawlers via robots.txt (the stick). Soon we'll add x402 protocol enforcement (bigger stick). But you can also license your content and earn money from AI companies that want to do the right thing (the carrot).
 
 Most creators don't realize: News Corp got $250M+ from OpenAI. Reddit got $60M/year. The EU AI Act now requires licensed training data. The licensing market exists - it's just been locked to big publishers. Until now.
+
+= Why WordPress Creators Need This Now =
+
+**The old web is dying.** SEO doesn't matter when ChatGPT and Gemini give zero-click answers using your content. Ad revenue collapses when AI companies scrape your articles and serve them to users who never visit your site. The business models powering the independent web - ads and subscriptions - are disintegrating with every AI release.
+
+**AI content licensing is the answer.** While social media captured one generation of human creativity, and tech giants bought up the rest, WordPress remains the last great bastion of independent publishing that hasn't been captured. It's where 43% of the web lives. It's where creators still own their content.
+
+This is where we make our stand.
+
+The big publishers already figured this out. News Corp: $250M+. Reddit: $60M/year. Financial Times, Associated Press, Axel Springer - they're all cutting deals. Meanwhile, individual WordPress site owners - the backbone of the open web - get nothing while AI companies scrape freely.
+
+**That changes today.**
+
+= EU AI Act Compliance =
+
+The EU AI Act now mandates that AI companies must respect opt-out mechanisms and maintain licensing documentation for training data. This plugin provides:
+
+- **Enforceable crawl terms** via robots.txt and upcoming x402 protocol
+- **Opt-in training licenses** with clear pricing and attribution
+- **Compliant usage tracking** that meets EU reporting requirements
+- **Monetization infrastructure** so you get paid, not just compliance paperwork
+
+For WordPress sites serving EU audiences, this isn't just about money - it's about legal compliance for the AI companies that want to use your content.
+
+= The Technology Behind It =
+
+We've built the first true content licensing infrastructure for AI:
+
+**License Grammar v1.5** - The emerging standard for machine-readable licensing. Our meta tag format works with ChatGPT, Claude, Gemini, Grok, and 100+ AI systems. It's being adopted as the industry standard because it's simple, parseable, and extensible.
+
+**Dual-axis licensing** - Control both the AI use case (training vs inference) and distribution level (private vs public). You can allow free private research while charging for commercial usage. Or block training entirely while allowing inference. Your content, your rules.
+
+**Immutable ledger** - When AI companies use your content, it's logged with cryptographic verification. This creates legal standing if you need to enforce your terms. It's not just "hoping they comply" - it's building an audit trail.
+
+**Smart enforcement** - robots.txt blocks non-compliant crawlers today. The upcoming x402 protocol forces payment at the HTTP level. And we're working with Cloudflare for network-level enforcement for enterprise customers.
 
 = How It Actually Works =
 
