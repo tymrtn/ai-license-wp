@@ -355,25 +355,37 @@ class Settings_Page implements Bootable {
 		?>
 		<div class="wrap csh-ai-license-settings">
 			<h1><?php esc_html_e( 'AI Access Control', 'copyright-sh-ai-license' ); ?></h1>
-			<?php $this->render_onboarding_card(); ?>
-			<form method="post" action="options.php">
+			<p class="csh-ai-page-lede"><?php esc_html_e( 'Guide AI crawlers with explicit licence terms, tuned enforcement profiles, and clear health insights.', 'copyright-sh-ai-license' ); ?></p>
+			<form method="post" action="options.php" class="csh-ai-settings-form">
 				<?php
 				settings_fields( 'csh_ai_license_group' );
 				?>
-				<div class="csh-ai-settings-section csh-ai-settings-terms">
-					<h2><?php esc_html_e( 'Licensing Terms', 'copyright-sh-ai-license' ); ?></h2>
-					<p class="description"><?php esc_html_e( 'Define how compliant AI clients may access and licence your content. These settings power meta tags and ai-license.txt.', 'copyright-sh-ai-license' ); ?></p>
-					<?php do_settings_sections( self::PAGE_TERMS ); ?>
-				</div>
+				<div class="csh-ai-layout">
+					<div class="csh-ai-main">
+						<section class="csh-ai-panel" id="csh-ai-terms-panel" aria-labelledby="csh-ai-terms-heading">
+							<header class="csh-ai-panel-header">
+								<h2 id="csh-ai-terms-heading"><?php esc_html_e( 'Licensing Terms', 'copyright-sh-ai-license' ); ?></h2>
+								<p><?php esc_html_e( 'Define the permitted use, pricing, and attribution details that power your meta tags and ai-license.txt.', 'copyright-sh-ai-license' ); ?></p>
+							</header>
+							<?php do_settings_sections( self::PAGE_TERMS ); ?>
+						</section>
 
-				<div class="csh-ai-settings-section csh-ai-settings-enforcement">
-					<h2><?php esc_html_e( 'Crawler Enforcement', 'copyright-sh-ai-license' ); ?></h2>
-					<p class="description"><?php esc_html_e( 'Control, monitor, and refine how crawlers are challenged or blocked. Profiles, observation windows, robots.txt and health diagnostics live here.', 'copyright-sh-ai-license' ); ?></p>
-					<?php do_settings_sections( self::PAGE_ENFORCEMENT ); ?>
+						<section class="csh-ai-panel" id="csh-ai-enforcement-panel" aria-labelledby="csh-ai-enforcement-heading">
+							<header class="csh-ai-panel-header">
+								<h2 id="csh-ai-enforcement-heading"><?php esc_html_e( 'Crawler Enforcement', 'copyright-sh-ai-license' ); ?></h2>
+								<p><?php esc_html_e( 'Select a protection profile, tune observation mode, manage allow/block lists, and monitor crawler health.', 'copyright-sh-ai-license' ); ?></p>
+							</header>
+							<?php do_settings_sections( self::PAGE_ENFORCEMENT ); ?>
+						</section>
+
+						<div class="csh-ai-actions">
+							<?php submit_button( __( 'Save Changes', 'copyright-sh-ai-license' ) ); ?>
+						</div>
+					</div>
+					<aside class="csh-ai-sidebar" aria-label="<?php esc_attr_e( 'AI Licence setup guidance', 'copyright-sh-ai-license' ); ?>">
+						<?php $this->render_onboarding_card(); ?>
+					</aside>
 				</div>
-				<?php
-				submit_button( __( 'Save Changes', 'copyright-sh-ai-license' ) );
-				?>
 			</form>
 		</div>
 		<?php
@@ -885,65 +897,228 @@ class Settings_Page implements Bootable {
 	 * Render the quick-start onboarding card.
 	 */
 	private function render_onboarding_card(): void {
-		$settings   = $this->options->get_settings();
-		$profiles   = Profiles::all();
-		$selected   = $settings['profile']['selected'] ?? 'default';
-		$profile    = $profiles[ $selected ] ?? null;
+		$settings      = $this->options->get_settings();
+		$profiles      = Profiles::all();
+		$selected      = $settings['profile']['selected'] ?? 'default';
+		$profile       = $profiles[ $selected ] ?? null;
 		$profile_label = $profile['label'] ?? __( 'Custom', 'copyright-sh-ai-license' );
+
+		$policy        = $settings['policy'] ?? [];
+		$policy_mode   = $policy['mode'] ?? 'allow';
+		$distribution  = $policy['distribution'] ?? '';
+		$price         = trim( (string) ( $policy['price'] ?? '' ) );
+		$payto         = trim( (string) ( $policy['payto'] ?? '' ) );
+
+		$policy_mode_text = ( 'deny' === $policy_mode )
+			? __( 'Default mode: Deny AI usage', 'copyright-sh-ai-license' )
+			: __( 'Default mode: Allow compliant AI clients', 'copyright-sh-ai-license' );
+
+		$policy_meta = [];
+		if ( 'public' === $distribution ) {
+			$policy_meta[] = __( 'Distribution: public catalogue', 'copyright-sh-ai-license' );
+		} elseif ( 'private' === $distribution ) {
+			$policy_meta[] = __( 'Distribution: private catalogue', 'copyright-sh-ai-license' );
+		}
+
+		if ( '' !== $price ) {
+			$policy_meta[] = sprintf( __( 'Price hint: %s', 'copyright-sh-ai-license' ), $price );
+		}
+
+		if ( '' !== $payto ) {
+			$policy_meta[] = sprintf( __( 'Pay to: %s', 'copyright-sh-ai-license' ), $payto );
+		}
+
+		if ( empty( $policy_meta ) ) {
+			$policy_meta[] = __( 'Using default licence metadata.', 'copyright-sh-ai-license' );
+		}
+
+		$observation       = $settings['enforcement']['observation_mode'] ?? [];
+		$observation_label = __( 'Disabled', 'copyright-sh-ai-license' );
+		if ( ! empty( $observation['enabled'] ) ) {
+			$expires_at = isset( $observation['expires_at'] ) ? (int) $observation['expires_at'] : 0;
+			if ( $expires_at > current_time( 'timestamp' ) ) {
+				$observation_label = sprintf(
+					/* translators: %s is a formatted date */
+					__( 'Active until %s', 'copyright-sh-ai-license' ),
+					$this->format_datetime( $expires_at )
+				);
+			} else {
+				$observation_label = __( 'Awaiting next save', 'copyright-sh-ai-license' );
+			}
+		}
+
+		$threshold = isset( $settings['enforcement']['threshold'] ) ? (int) $settings['enforcement']['threshold'] : 60;
+		$requests  = isset( $settings['rate_limit']['requests'] ) ? (int) $settings['rate_limit']['requests'] : 100;
+		$window    = isset( $settings['rate_limit']['window'] ) ? (int) $settings['rate_limit']['window'] : 300;
+
+		$step_two_meta = [
+			sprintf( __( 'Profile: %s', 'copyright-sh-ai-license' ), $profile_label ),
+			sprintf( __( 'Observation: %s', 'copyright-sh-ai-license' ), $observation_label ),
+			sprintf( __( 'Score threshold: %d', 'copyright-sh-ai-license' ), $threshold ),
+			sprintf( __( 'Rate limit: %1$d requests / %2$ds', 'copyright-sh-ai-license' ), $requests, $window ),
+		];
+
+		$robots_settings = $settings['robots'] ?? [];
+		$robots_manage   = ! empty( $robots_settings['manage'] );
+		$robots_ai_rules = ! empty( $robots_settings['ai_rules'] );
+
+		$robots_summary = $robots_manage
+			? __( 'Robots.txt: Managed by plugin', 'copyright-sh-ai-license' )
+			: __( 'Robots.txt: Managed externally', 'copyright-sh-ai-license' );
+
+		$robots_detail = '';
+		if ( $robots_manage ) {
+			$robots_detail = $robots_ai_rules
+				? __( 'AI-specific rules are injected automatically.', 'copyright-sh-ai-license' )
+				: __( 'AI-specific rules are currently disabled.', 'copyright-sh-ai-license' );
+		}
+
+		$queue_stats         = $this->usage_queue ? $this->usage_queue->get_stats() : [];
+		$pending             = isset( $queue_stats['pending'] ) ? (int) $queue_stats['pending'] : 0;
+		$failed              = isset( $queue_stats['failed'] ) ? (int) $queue_stats['failed'] : 0;
+		$queue_summary       = ( $pending > 0 || $failed > 0 )
+			? sprintf( __( 'Queue: %1$d pending, %2$d failed events', 'copyright-sh-ai-license' ), $pending, $failed )
+			: __( 'Queue: No pending crawler events', 'copyright-sh-ai-license' );
+		$last_dispatch       = $queue_stats['last_dispatch'] ?? '';
+		$last_dispatch_time  = $last_dispatch ? strtotime( $last_dispatch . ' UTC' ) : false;
+		$last_dispatch_line  = $last_dispatch_time
+			? sprintf(
+				/* translators: %s is a formatted date */
+				__( 'Last crawler update: %s', 'copyright-sh-ai-license' ),
+				$this->format_datetime( (int) $last_dispatch_time )
+			)
+			: __( 'Last crawler update: not yet recorded', 'copyright-sh-ai-license' );
+
+		$step_three_meta = array_filter(
+			[
+				$robots_summary,
+				$robots_detail,
+				$queue_summary,
+				$last_dispatch_line,
+			]
+		);
 
 		static $printed_style = false;
 		if ( ! $printed_style ) {
 			$printed_style = true;
 			?>
 			<style>
-				.csh-ai-onboarding { margin: 1em 0 1.5em; padding: 1.2em 1.5em; border: 1px solid #dcdcde; background: #f6f7f7; border-radius: 4px; }
-				.csh-ai-onboarding h2 { margin-top: 0; margin-bottom: 0.6em; }
-				.csh-ai-onboarding ol { margin: 0; padding-left: 1.5em; }
-				.csh-ai-onboarding li { margin-bottom: 0.5em; }
-				.csh-ai-settings-section { margin: 2em 0; padding: 1.2em 1.5em; background: #fff; border: 1px solid #dcdcde; border-radius: 4px; }
-				.csh-ai-settings-section h2 { margin-top: 0; }
-				.csh-ai-settings-section .description { margin-bottom: 1em; }
-				.csh-ai-summary-card { margin: 1em 0 2em; padding: 1.2em 1.4em; border: 1px solid #c3c4c7; background: #fefefe; border-radius: 4px; }
-				.csh-ai-summary-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 0.6em; }
-				.csh-ai-summary-description { margin: 0 0 0.8em; color: #50575e; }
-				.csh-ai-summary-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0.8em; }
-				.csh-ai-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; line-height: 1.6; background: #e7f5ff; color: #0366d6; font-weight: 600; }
-				.csh-ai-badge-profile { background: #f0f6ff; color: #093a7a; }
+				.csh-ai-license-settings .csh-ai-page-lede { margin: 0.4em 0 1.6em; color: #50575e; font-size: 15px; max-width: 72ch; }
+				.csh-ai-settings-form { margin-top: 0; }
+				.csh-ai-settings-form .csh-ai-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+				.csh-ai-main { display: grid; gap: 24px; }
+				.csh-ai-panel { background: #fff; border: 1px solid #dcdcde; border-radius: 10px; padding: 24px 28px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); }
+				.csh-ai-panel-header h2 { margin: 0; font-size: 20px; line-height: 1.4; }
+				.csh-ai-panel-header p { margin: 8px 0 0; color: #50575e; max-width: 62ch; }
+				.csh-ai-panel .form-table { display: block; margin: 24px 0 0; }
+				.csh-ai-panel .form-table > tbody { display: block; }
+				.csh-ai-panel .form-table > tbody > tr { display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); gap: 16px; padding: 18px 0; border-top: 1px solid #edf0f3; }
+				.csh-ai-panel .form-table > tbody > tr:first-child { border-top: 0; padding-top: 0; }
+				.csh-ai-panel .form-table th { margin: 0; padding: 0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #50575e; font-weight: 600; }
+				.csh-ai-panel .form-table td { margin: 0; padding: 0; }
+				.csh-ai-panel .form-table td .description { margin-top: 8px; }
+				.csh-ai-panel .form-table fieldset { margin: 0; }
+				.csh-ai-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
+				.csh-ai-actions .submit { margin: 0; }
+				.csh-ai-sidebar { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 24px; }
+				.csh-ai-sidebar-card { padding: 22px 24px; border-radius: 12px; border: 1px solid #dce1f4; background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%); box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); }
+				.csh-ai-sidebar-card__header { margin-bottom: 20px; }
+				.csh-ai-sidebar-kicker { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(56, 88, 233, 0.12); color: #2b50d9; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+				.csh-ai-sidebar-card__header h2 { margin: 12px 0 8px; font-size: 18px; line-height: 1.4; }
+				.csh-ai-sidebar-card__header p { margin: 0; color: #4b5563; font-size: 13px; line-height: 1.6; }
+				.csh-ai-step-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+				.csh-ai-step { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; }
+				.csh-ai-step-index { width: 32px; height: 32px; border-radius: 50%; background: #2b50d9; color: #fff; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 6px 12px rgba(43, 80, 217, 0.25); }
+				.csh-ai-step-body { display: grid; gap: 6px; }
+				.csh-ai-step-title { margin: 0; font-size: 15px; font-weight: 600; color: #111827; }
+				.csh-ai-step-summary { margin: 0; color: #4b5563; font-size: 13px; line-height: 1.6; }
+				.csh-ai-step-meta { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; color: #1f2937; }
+				.csh-ai-step-meta li { display: flex; gap: 6px; align-items: center; line-height: 1.4; }
+				.csh-ai-step .button-link { padding-left: 0; font-weight: 600; }
+				.csh-ai-summary-card { margin: 20px 0; padding: 18px 20px; border: 1px solid #e1e5f2; background: #fefeff; border-radius: 10px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06); }
+				.csh-ai-summary-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 0.4em; }
+				.csh-ai-summary-description { margin: 0 0 0.8em; color: #4b5563; }
+				.csh-ai-summary-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0.75em; }
+				.csh-ai-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.6; background: #ecf2ff; color: #2b50d9; }
+				.csh-ai-badge-profile { background: #f1f5ff; color: #1d4ed8; }
 				.csh-ai-badge-warning { background: #fff4e5; color: #8a5200; }
 				.csh-ai-badge-allow { background: #e6f4ea; color: #1a7f37; }
-				.csh-ai-badge-challenge { background: #f1f5ff; color: #3853a4; }
+				.csh-ai-badge-challenge { background: #edf2ff; color: #3853a4; }
 				.csh-ai-badge-block { background: #fdecea; color: #d93025; }
-				.csh-ai-summary-meta { list-style: none; margin: 0 0 1em; padding: 0; }
-				.csh-ai-summary-meta li { margin: 0.2em 0; color: #2c3338; }
-				.csh-ai-summary-meta strong { display: inline-block; min-width: 180px; font-weight: 600; }
-				.csh-ai-summary-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-				.csh-ai-summary-actions .button-link { padding-left: 0; }
+				.csh-ai-summary-meta { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: #1f2937; font-size: 12px; }
+				.csh-ai-summary-meta li { display: flex; gap: 6px; align-items: baseline; }
+				.csh-ai-summary-meta strong { min-width: 160px; font-weight: 600; color: #111827; }
+				.csh-ai-summary-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 				.csh-ai-agent-table .button-danger { background: #d63638; border-color: #d63638; color: #fff; }
 				.csh-ai-agent-table .button-danger:hover { background: #a1282a; border-color: #a1282a; color: #fff; }
 				.csh-ai-agent-actions form { margin-bottom: 0; }
+				@media (max-width: 1100px) {
+					.csh-ai-settings-form .csh-ai-layout { grid-template-columns: 1fr; }
+					.csh-ai-sidebar { position: static; }
+				}
+				@media (max-width: 782px) {
+					.csh-ai-settings-form .csh-ai-layout { gap: 16px; }
+					.csh-ai-panel { padding: 20px; }
+					.csh-ai-panel .form-table > tbody > tr { grid-template-columns: 1fr; }
+					.csh-ai-panel .form-table th { text-transform: none; letter-spacing: normal; font-size: 14px; }
+					.csh-ai-actions { justify-content: stretch; }
+				}
 			</style>
 			<?php
 		}
 
 		?>
-		<div class="csh-ai-onboarding">
-			<h2><?php esc_html_e( 'Enforce crawlers in three steps', 'copyright-sh-ai-license' ); ?></h2>
-			<ol>
-				<li>
-					<strong><?php esc_html_e( 'Pick a profile', 'copyright-sh-ai-license' ); ?>:</strong>
-					<?php
-					/* translators: %s is the name of the currently active profile */
-					$profile_message = sprintf( __( 'Currently using: %s. Switch profiles below if you need a different stance.', 'copyright-sh-ai-license' ), $profile_label );
-					echo esc_html( $profile_message );
-					?>
+		<div class="csh-ai-sidebar-card">
+			<div class="csh-ai-sidebar-card__header">
+				<span class="csh-ai-sidebar-kicker"><?php esc_html_e( 'Suggested flow', 'copyright-sh-ai-license' ); ?></span>
+				<h2><?php esc_html_e( 'Finish your enforcement setup', 'copyright-sh-ai-license' ); ?></h2>
+				<p><?php esc_html_e( 'Follow these guided steps after updating settings to keep crawlers aligned.', 'copyright-sh-ai-license' ); ?></p>
+			</div>
+			<ol class="csh-ai-step-list">
+				<li class="csh-ai-step">
+					<span class="csh-ai-step-index">1</span>
+					<div class="csh-ai-step-body">
+						<h3 class="csh-ai-step-title"><?php esc_html_e( 'Define licensing terms', 'copyright-sh-ai-license' ); ?></h3>
+						<p class="csh-ai-step-summary"><?php echo esc_html( $policy_mode_text ); ?></p>
+						<?php if ( ! empty( $policy_meta ) ) : ?>
+							<ul class="csh-ai-step-meta">
+								<?php foreach ( $policy_meta as $meta_line ) : ?>
+									<li><?php echo esc_html( $meta_line ); ?></li>
+								<?php endforeach; ?>
+							</ul>
+						<?php endif; ?>
+						<a class="button-link" href="#csh-ai-terms-panel"><?php esc_html_e( 'Adjust licensing terms', 'copyright-sh-ai-license' ); ?></a>
+					</div>
 				</li>
-				<li>
-					<strong><?php esc_html_e( 'Review observation mode', 'copyright-sh-ai-license' ); ?>:</strong>
-					<?php esc_html_e( 'Stay in log-only mode for a day, or disable it to enforce immediately.', 'copyright-sh-ai-license' ); ?>
+				<li class="csh-ai-step">
+					<span class="csh-ai-step-index">2</span>
+					<div class="csh-ai-step-body">
+						<h3 class="csh-ai-step-title"><?php esc_html_e( 'Calibrate crawler responses', 'copyright-sh-ai-license' ); ?></h3>
+						<p class="csh-ai-step-summary"><?php esc_html_e( 'Choose the right enforcement profile, confirm observation mode, and ensure score tuning matches your comfort level.', 'copyright-sh-ai-license' ); ?></p>
+						<?php if ( ! empty( $step_two_meta ) ) : ?>
+							<ul class="csh-ai-step-meta">
+								<?php foreach ( $step_two_meta as $meta_line ) : ?>
+									<li><?php echo esc_html( $meta_line ); ?></li>
+								<?php endforeach; ?>
+							</ul>
+						<?php endif; ?>
+						<a class="button-link" href="#csh-ai-enforcement-panel"><?php esc_html_e( 'Adjust enforcement settings', 'copyright-sh-ai-license' ); ?></a>
+					</div>
 				</li>
-				<li>
-					<strong><?php esc_html_e( 'Save and monitor health', 'copyright-sh-ai-license' ); ?>:</strong>
-					<?php esc_html_e( 'Use the health panel to watch JWKS updates, queue status, and top crawlers. Promote or block with one click.', 'copyright-sh-ai-license' ); ?>
+				<li class="csh-ai-step">
+					<span class="csh-ai-step-index">3</span>
+					<div class="csh-ai-step-body">
+						<h3 class="csh-ai-step-title"><?php esc_html_e( 'Monitor health & traffic', 'copyright-sh-ai-license' ); ?></h3>
+						<p class="csh-ai-step-summary"><?php esc_html_e( 'Review crawler health, promote trustworthy agents, and block abusive actors from the activity log.', 'copyright-sh-ai-license' ); ?></p>
+						<?php if ( ! empty( $step_three_meta ) ) : ?>
+							<ul class="csh-ai-step-meta">
+								<?php foreach ( $step_three_meta as $meta_line ) : ?>
+									<li><?php echo esc_html( $meta_line ); ?></li>
+								<?php endforeach; ?>
+							</ul>
+						<?php endif; ?>
+						<a class="button-link" href="#csh-ai-enforcement-panel"><?php esc_html_e( 'Open crawler health', 'copyright-sh-ai-license' ); ?></a>
+					</div>
 				</li>
 			</ol>
 		</div>
@@ -960,7 +1135,6 @@ class Settings_Page implements Bootable {
 	 */
 	private function render_agent_action_button( string $agent, string $decision, string $label, string $classes ): void {
 		$action_url = admin_url( 'admin-post.php' );
-		?>
 		$form_referer = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : admin_url( 'options-general.php?page=csh-ai-license' );
 		?>
 		<form method="post" action="<?php echo esc_url( $action_url ); ?>" style="display:inline-block;margin-right:6px;">
