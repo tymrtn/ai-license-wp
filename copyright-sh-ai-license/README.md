@@ -8,12 +8,12 @@
 
 ## 🚀 Quick Start
 
-1. Install the plugin from WordPress.org or upload the ZIP file
-2. Activate and navigate to Settings → AI License
-3. Set your price and payment details
-4. Save – you're protected!
+1. Install the plugin from WordPress.org or upload the ZIP file.
+2. Activate and navigate to **Settings → AI License**.
+3. Choose a preset profile and review the crawler enforcement section – observation mode is enabled by default so you can observe traffic before blocking.
+4. Set your pricing and payment details, then save changes.
 
-Your content is now licensed for AI usage with automatic payment collection.
+Once you flip enforcement on, unlicensed crawlers receive 402 Payment Required responses and licensed bots continue seamlessly.
 
 ## 💰 Why You Need This
 
@@ -32,19 +32,19 @@ Copyright.sh provides the infrastructure for fair compensation:
 ## 🎯 Key Features
 
 ### For Content Creators
-- ✅ **One-Click Protection** – Protect your entire site in 60 seconds
-- ✅ **Flexible Pricing** – Set global rates or per-post overrides
-- ✅ **Dual Distribution** – Different rates for private vs public AI usage
-- ✅ **Stage-Specific Licensing** – Control inference, training, embedding, fine-tuning
-- ✅ **AI Bot Blocking** – Optional robots.txt blocks scrapers while preserving SEO
-- ✅ **Real-Time Tracking** – Monitor usage and earnings at dashboard.copyright.sh
+- ✅ **Guided Observation Mode** – Observe traffic safely before flipping the paywall on.
+- ✅ **402/401 Enforcement** – Serve payment-required responses with machine-readable offers.
+- ✅ **Smart Controls** – Rate limiting, allowlists/denylists, and verified search bot bypass.
+- ✅ **Robots & PHP Alignment** – Sync robots.txt management with server-side blocking.
+- ✅ **Full Audit Trail** – Every decision is queued for async reporting to the Copyright.sh ledger.
 
 ### For Developers
-- ✅ **Clean Code** – Single-file plugin, no bloat
-- ✅ **WordPress Standards** – Follows all coding guidelines
-- ✅ **Cache Compatible** – Works with all major caching plugins
-- ✅ **Hook System** – Extensible via WordPress filters and actions
-- ✅ **Open Standard** – Implements License Grammar v1.5 specification
+- ✅ **Modular Architecture** – PSR-4 services for detection, auth, logging, and admin UI.
+- ✅ **JWKS + JWT Verification** – Cached keysets, RS256 signatures, and replay protection out of the box.
+- ✅ **Extensive Hooks** – Filters/actions for bot patterns, scoring, response payloads, and offers.
+- ✅ **Async Usage Queue** – Cron-backed dispatcher with retry/backoff logic and health metrics.
+- ✅ **Standards-Friendly** – Emits License Grammar v1.5 meta tags, ai-license.txt, and L402-compatible headers.
+- ✅ **Curated Profiles & Quick Actions** – Pre-baked presets plus health-panel buttons to promote/downgrade crawlers.
 
 ## 📋 How It Works
 
@@ -62,8 +62,15 @@ User-agent: *
 License: allow; distribution:public; price:0.50; payto:your.domain.com
 ```
 
-### 3. Optional Bot Blocking
-Robots.txt rules block AI training while allowing search engines:
+### 3. Crawler Enforcement
+- Bot detector scores each request via cached user-agent signatures, behaviour heuristics, and reverse DNS verification for search bots.
+- Valid JWT licence tokens return **200 OK** with tracking headers.
+- Unknown crawlers above the threshold receive **402 Payment Required** with WWW-Authenticate + JSON offers.
+- Blocklisted UAs/IPs return **403**, and aggressive clients hit a **429** token bucket with Retry-After.
+- All decisions are queued asynchronously for ledger reporting.
+
+### 4. Optional Robots.txt Management
+Robots.txt rules can mirror PHP-level enforcement while keeping SEO bots untouched:
 ```
 User-agent: GPTBot
 Disallow: /
@@ -77,11 +84,11 @@ Allow: /
 ### Global Settings
 Navigate to **Settings → AI License** to configure:
 
-- **Policy**: Allow or Deny AI usage
-- **Distribution**: Private (individual use) or Public (commercial use)
-- **Price**: Cost per 1,000 tokens (default: $0.10)
-- **PayTo**: Your payment account or domain
-- **Robots.txt**: Optional AI crawler blocking
+- **Policy**: Allow or deny AI usage and set pricing metadata.
+- **Enforcement**: Toggle the observation window, switch to full enforcement, and monitor the countdown.
+- **Detection**: Adjust bot score threshold, rate limits, and optional allow/block lists.
+- **Robots.txt**: Let the plugin manage a synchronized robots file or use your own.
+- **Health**: Inspect JWKS cache age, pattern sync status, and usage queue depth.
 
 ### Per-Post Overrides
 Each post/page has an "AI License Override" meta box where you can:

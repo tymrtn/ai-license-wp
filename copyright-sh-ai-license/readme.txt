@@ -1,63 +1,39 @@
-=== Copyright AI Content Licensing – Block AI Crawlers + Get Paid ===
+=== Copyright.sh – AI License ===
 Contributors:      copyrightsh
 Tags:              ai-license, copyright, robots-txt, content-licensing, chatgpt
 Requires at least: 6.2
 Tested up to:      6.8
 Requires PHP:      7.4
-Stable tag:        1.6.2
+Stable tag:        2.0.0
 License:           GPLv3 or later
 License URI:       https://www.gnu.org/licenses/gpl-3.0.html
 
-Copyright protection and AI content licensing for WordPress. Block AI crawlers via robots.txt OR license your content and get paid. Works with ChatGPT, Claude, Gemini, and 100+ AI systems.
+AI content licensing for WordPress. Block crawlers, verify JWT tokens, manage robots.txt, and get paid when AI uses your content.
 
 == Description ==
 
-**Block AI crawlers from scraping your site, or license your content and get paid. Your site, your choice.**
+**Local crawler enforcement, machine-readable licensing, and ledger-ready analytics for WordPress.**
 
-AI companies are crawling your WordPress site right now. ChatGPT, Claude, Gemini, Grok - they're all here, training on your content without asking. This plugin gives you two options: either block them with robots.txt, or add machine-readable licensing terms so compliant AI companies can pay you.
+Copyright.sh 2.0 brings Cloudflare-style AI paywalls to regular WordPress sites. You get:
 
-Here's what makes this different: we do BOTH blocking AND licensing. Most services only do one or the other. We built the infrastructure to do both properly.
+= Highlights =
+* Meta tags and `/ai-license.txt` that advertise your licensing terms (License Grammar v1.5)
+* PHP-level detection with cached signatures, search bot verification, and behavioural scoring
+* 402 Payment Required responses with JSON offers, 401 for bad tokens, 403/429 for abuse
+* Curated enforcement profiles, observation mode, rate limiting, and health diagnostics in WP Admin
+* Async usage logging queue that reports crawl activity back to the Copyright.sh ledger API
 
-= The Reality of AI Crawler Blocking =
+= Crawler Enforcement =
+Every public request is scored using user-agent intelligence, header heuristics, and reverse DNS. Authenticated bots that present valid JWT licence tokens glide through with tracked 200 responses. Unknown or non-compliant crawlers receive a 402 Payment Required with machine-readable offers, while block-listed or abusive agents are cut off with 403/429. All outcomes are cached for <1ms lookups.
 
-**robots.txt is a voluntary standard** - While OpenAI and Anthropic claim to respect robots.txt, the reality is more complex. Recent investigations by TollBit and Cloudflare found evidence of major AI companies bypassing blocks, and Perplexity was caught using undisclosed IPs to scrape sites that blocked their official crawler. Industry data shows 12.9% of bots now ignore robots.txt (up from 3.3%), with 26 million bypasses in March 2025 alone.
+= Profiles & Observation Controls =
+Choose from prebuilt enforcement profiles (strict block, default licence, or audit-only) and fine-tune behaviour with observation mode. Run log-only for a day, enforce immediately, or promote/block crawlers straight from the health panel with quick actions. All settings live inside Settings → AI License, alongside real-time indicators for JWKS refresh, pattern sync, and queue depth.
 
-**Why blocking still matters**: Even as a voluntary measure, robots.txt raises the legal and technical barrier. It establishes clear notice of your access terms, strengthening your legal position if you need to enforce your rights. Most legitimate AI companies do respect it - but you need backup enforcement.
+= Robots.txt & Search Bots =
+The plugin can manage an aligned `robots.txt` file so search engines stay happy while AI scrapers are denied. Verified search bots (Google, Bing, Apple, DuckDuckGo) are allowed through automatically via reverse DNS + forward checks.
 
-= Coming Soon: HTTP 402 "Payment Required" Protocol =
-
-We're implementing the HTTP 402 "Payment Required" status code protocol. When an AI bot hits your site without a valid license, we'll serve a 402 response with your licensing terms in machine-readable format.
-
-**Transparency**: This is also a voluntary protocol. Cloudflare launched their "Pay Per Crawl" implementation on July 1, 2025, and now serves over 1 billion 402 responses daily - but it's currently in private beta limited to select major publications. Like robots.txt, HTTP 402 requires AI companies to cooperate. The difference is it's newer, more standardized, and creates clearer legal standing for enforcement.
-
-= The Stick AND The Carrot =
-
-This plugin already blocks AI crawlers via robots.txt (the stick). Soon we'll add x402 protocol enforcement (bigger stick). But you can also license your content and earn money from AI companies that want to do the right thing (the carrot).
-
-Most creators don't realize: News Corp got $250M+ from OpenAI. Reddit got $60M/year. The EU AI Act now requires licensed training data. The licensing market exists - it's just been locked to big publishers. Until now.
-
-= Why WordPress Creators Need This Now =
-
-**The traffic apocalypse is real.** In 2025, 60% of Google searches end without any click to external sites - up from 44.2% just a year ago. When users do click, only 360 clicks per 1,000 searches go to the open web (374 in EU). The rest? 14.3% go to Google-owned properties like YouTube and Maps. For the first time in a decade, Google now keeps 90% of its ad revenue internally, with only 10% going to network publishers.
-
-This isn't theoretical - it's happening right now. ChatGPT and Gemini answer questions using your content, but users never visit your site. Your ad revenue collapses. Your subscription model breaks when AI gives your insights away for free.
-
-**AI content licensing is the survival strategy.** The big publishers already figured this out. News Corp got over $250M from OpenAI (5-year deal). Reddit: $60M/year. Nine major publishers have signed deals including Financial Times, Associated Press, Le Monde, and Axel Springer. Meanwhile, individual WordPress site owners - the backbone of the open web - get nothing while AI companies scrape freely.
-
-**WordPress is where we make our stand.** Dave Winer, who invented blogging 30 years ago and co-created RSS, is now championing WordPress as the foundation for the independent web's renaissance. In his 2025 writings and WordCamp Canada keynote, he argues that WordPress represents the "read/write web" Tim Berners-Lee originally envisioned - where creators own their content and control their distribution. While social media captured one generation of creativity and tech giants bought up the rest, WordPress remains the last great bastion of independent publishing. It's where 43% of the web lives. It's where creators still own their content.
-
-That changes today.
-
-= EU AI Act Compliance =
-
-The EU AI Act now mandates that AI companies must respect opt-out mechanisms and maintain licensing documentation for training data. This plugin provides:
-
-- **Enforceable crawl terms** via robots.txt and upcoming x402 protocol
-- **Opt-in training licenses** with clear pricing and attribution
-- **Compliant usage tracking** that meets EU reporting requirements
-- **Monetization infrastructure** so you get paid, not just compliance paperwork
-
-For WordPress sites serving EU audiences, this isn't just about money - it's about legal compliance for the AI companies that want to use your content.
+= Usage Reporting =
+Every decision (allow, paywall, block, rate-limit) is persisted to a WordPress table and dispatched asynchronously to the Copyright.sh ledger via cron with exponential backoff. This keeps the front-end fast while giving you and AI companies the audit trail regulators demand.
 
 = The Technology Behind It =
 
@@ -294,6 +270,13 @@ This plugin handles options 2 and 3. Takes about 5 minutes to set up. Your call.
 7. Understanding AI stages - See how different AI use cases (train, infer, embed, tune) work
 
 == Changelog ==
+
+= 2.0.0 =
+* Major: Added PHP-level crawler enforcement with scoring, allow/block lists, and rate limiting.
+* Major: 402 Payment Required responses with machine-readable offers and JWT authentication (JWKS caching + replay protection).
+* Major: New admin interface with observation window countdown, health diagnostics, and enhanced configuration.
+* Feature: Async usage logging queue with cron-based dispatch to the Copyright.sh ledger API.
+* Feature: Reverse DNS verification for search bots + synchronized robots.txt management.
 
 = 1.6.2 =
 * Preserves the full WordPress settings URL (with query string) when sending magic links
