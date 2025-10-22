@@ -17,7 +17,7 @@ A WordPress plugin that enables websites to declare AI usage permissions and mon
 The plugin implements the Copyright.sh License Grammar Specification v1.5:
 
 ```html
-<meta name="ai-license" content="allow;distribution:public;price:0.15;payto:cs-8f4a2b9c1d5e6f7a">
+<meta name="ai-license" content="allow; distribution:public; price:0.15; payto:cs-8f4a2b9c1d5e6f7a">>
 ```
 
 ### Parameters:

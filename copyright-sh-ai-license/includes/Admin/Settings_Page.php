@@ -128,10 +128,40 @@ class Settings_Page implements Bootable {
 				<?php endif; ?>
 			</div>
 			<p class="csh-ai-summary-description"><?php echo esc_html( $profile_desc ); ?></p>
-			<div class="csh-ai-summary-badges">
-				<span class="csh-ai-badge csh-ai-badge-allow"><?php printf( esc_html__( 'Allow: %d', 'copyright-sh-ai-license' ), $allow_count ); ?></span>
-				<span class="csh-ai-badge csh-ai-badge-challenge"><?php printf( esc_html__( 'Challenge: %d', 'copyright-sh-ai-license' ), $challenge_count ); ?></span>
-				<span class="csh-ai-badge csh-ai-badge-block"><?php printf( esc_html__( 'Block: %d', 'copyright-sh-ai-license' ), $block_count ); ?></span>
+				<div class="csh-ai-summary-badges">
+					<span class="csh-ai-badge csh-ai-badge-allow">
+						<?php
+						/* translators: %d: Number of allow-listed user agents. */
+						echo esc_html(
+							sprintf(
+								__( 'Allow: %d', 'copyright-sh-ai-license' ),
+								(int) $allow_count
+							)
+						);
+						?>
+					</span>
+					<span class="csh-ai-badge csh-ai-badge-challenge">
+						<?php
+						/* translators: %d: Number of challenge-listed user agents. */
+						echo esc_html(
+							sprintf(
+								__( 'Challenge: %d', 'copyright-sh-ai-license' ),
+								(int) $challenge_count
+							)
+						);
+						?>
+					</span>
+					<span class="csh-ai-badge csh-ai-badge-block">
+						<?php
+						/* translators: %d: Number of block-listed user agents. */
+						echo esc_html(
+							sprintf(
+								__( 'Block: %d', 'copyright-sh-ai-license' ),
+								(int) $block_count
+							)
+						);
+						?>
+					</span>
 			</div>
 			<ul class="csh-ai-summary-meta">
 				<li>
@@ -146,10 +176,21 @@ class Settings_Page implements Bootable {
 					<strong><?php esc_html_e( 'Bot score threshold:', 'copyright-sh-ai-license' ); ?></strong>
 					<span><?php echo esc_html( $threshold ); ?></span>
 				</li>
-				<li>
-					<strong><?php esc_html_e( 'Rate limit:', 'copyright-sh-ai-license' ); ?></strong>
-					<span><?php printf( esc_html__( '%1$d requests / %2$ds', 'copyright-sh-ai-license' ), $requests, $window ); ?></span>
-				</li>
+					<li>
+						<strong><?php esc_html_e( 'Rate limit:', 'copyright-sh-ai-license' ); ?></strong>
+						<span>
+							<?php
+							/* translators: 1: Number of requests, 2: Window in seconds. */
+							echo esc_html(
+								sprintf(
+									__( '%1$d requests / %2$ds', 'copyright-sh-ai-license' ),
+									(int) $requests,
+									(int) $window
+								)
+							);
+							?>
+						</span>
+					</li>
 			</ul>
 			<div class="csh-ai-summary-actions">
 				<a class="button-link" href="#csh-ai-allow-list-section"><?php esc_html_e( 'Edit allow list', 'copyright-sh-ai-license' ); ?></a>
@@ -383,7 +424,10 @@ class Settings_Page implements Bootable {
 						</div>
 					</div>
 					<aside class="csh-ai-sidebar" aria-label="<?php esc_attr_e( 'AI Licence setup guidance', 'copyright-sh-ai-license' ); ?>">
-						<?php $this->render_onboarding_card(); ?>
+						<?php
+						$this->render_health_sidebar_card();
+						$this->render_onboarding_card();
+						?>
 					</aside>
 				</div>
 			</form>
@@ -689,9 +733,11 @@ class Settings_Page implements Bootable {
 		$settings = $this->options->get_settings();
 		$content  = $settings['robots']['content'] ?? '';
 		?>
-		<textarea class="large-text code" rows="10" name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[robots][content]" readonly><?php echo esc_textarea( $content ); ?></textarea>
+		<details class="csh-ai-robots-preview">
+			<summary><?php esc_html_e( 'View robots.txt →', 'copyright-sh-ai-license' ); ?></summary>
+			<pre class="csh-ai-robots-preview__content"><?php echo esc_html( $content ); ?></pre>
+		</details>
 		<p class="description"><?php esc_html_e( 'Preview of your robots.txt file (read-only).', 'copyright-sh-ai-license' ); ?></p>
-		</div>
 		<?php
 	}
 
@@ -706,41 +752,39 @@ class Settings_Page implements Bootable {
 	 * Render health status overview.
 	 */
 	public function field_health_status(): void {
-		$jwks_key      = 'csh_ai_license_jwks_cache';
-		$patterns_key  = 'csh_ai_license_bot_patterns';
-		$jwks_cache    = get_transient( $jwks_key );
-		$patterns      = get_transient( $patterns_key );
-		$queue_stats   = $this->usage_queue ? $this->usage_queue->get_stats() : [];
+		$metrics = $this->get_health_snapshot();
+		$queue   = $metrics['queue'];
+		$agents  = $metrics['agents'];
 
-		$jwks_count    = is_array( $jwks_cache ) ? count( $jwks_cache ) : 0;
-		$patterns_count = is_array( $patterns ) ? count( $patterns ) : 0;
+		if ( $queue['failed'] > 0 ) {
+			?>
+			<div class="csh-ai-health-warning" role="alert">
+				<span class="csh-ai-badge csh-ai-badge-error">
+					<?php
+					/* translators: %d: Number of failed crawler events. */
+					echo esc_html(
+						sprintf(
+							__( '⚠️ %d Failed Events', 'copyright-sh-ai-license' ),
+							(int) $queue['failed']
+						)
+					);
+					?>
+				</span>
+				<a class="button button-secondary" href="#csh-ai-enforcement-panel"><?php esc_html_e( 'View Failed Events', 'copyright-sh-ai-license' ); ?></a>
+			</div>
+			<?php
+		}
 
-		$jwks_ttl      = $this->format_ttl( $jwks_key );
-		$patterns_ttl  = $this->format_ttl( $patterns_key );
+		echo '<div class="csh-ai-health-summary">';
+		echo '<p class="description">';
+		echo esc_html( $queue['summary_text'] );
+		echo ' | ';
+		/* translators: %s: Last dispatch timestamp. */
+		echo esc_html( sprintf( __( 'Last dispatch: %s', 'copyright-sh-ai-license' ), $queue['last_dispatch'] ) );
+		echo '</p>';
+		echo '</div>';
 
-		$pending = isset( $queue_stats['pending'] ) ? (int) $queue_stats['pending'] : 0;
-		$failed  = isset( $queue_stats['failed'] ) ? (int) $queue_stats['failed'] : 0;
-		$last_dispatch = ! empty( $queue_stats['last_dispatch'] ) ? $this->format_datetime( strtotime( $queue_stats['last_dispatch'] . ' UTC' ) ) : __( 'Never', 'copyright-sh-ai-license' );
-
-		echo '<ul class="csh-ai-health">';
-
-		// Build status strings separately to avoid nested translation functions.
-		/* translators: %d is the number of JWKS keys */
-		$jwks_status = $jwks_count ? sprintf( _n( '%d key', '%d keys', $jwks_count, 'copyright-sh-ai-license' ), $jwks_count ) : __( 'not cached', 'copyright-sh-ai-license' );
-		/* translators: 1: Number of JWKS keys or 'not cached', 2: Cache expiration time */
-		echo '<li>' . esc_html( sprintf( __( 'JWKS cache: %1$s (expires %2$s)', 'copyright-sh-ai-license' ), $jwks_status, $jwks_ttl ) ) . '</li>';
-
-		/* translators: %d is the number of bot patterns */
-		$patterns_status = $patterns_count ? sprintf( _n( '%d pattern', '%d patterns', $patterns_count, 'copyright-sh-ai-license' ), $patterns_count ) : __( 'not cached', 'copyright-sh-ai-license' );
-		/* translators: 1: Number of bot patterns or 'not cached', 2: Cache expiration time */
-		echo '<li>' . esc_html( sprintf( __( 'Bot pattern cache: %1$s (expires %2$s)', 'copyright-sh-ai-license' ), $patterns_status, $patterns_ttl ) ) . '</li>';
-
-		/* translators: 1: Number of pending events, 2: Number of failed events, 3: Last dispatch time */
-		echo '<li>' . esc_html( sprintf( __( 'Usage queue: %1$d pending, %2$d failed. Last dispatch: %3$s', 'copyright-sh-ai-license' ), $pending, $failed, $last_dispatch ) ) . '</li>';
-		echo '</ul>';
-
-		$agents = $queue_stats['top_agents'] ?? [];
-		echo '<h4>' . esc_html__( 'Top crawlers (last 5)', 'copyright-sh-ai-license' ) . '</h4>';
+		echo '<h4>' . esc_html__( 'Top Crawlers (Last 7 Days)', 'copyright-sh-ai-license' ) . '</h4>';
 		if ( empty( $agents ) ) {
 			echo '<p>' . esc_html__( 'No crawler activity logged yet.', 'copyright-sh-ai-license' ) . '</p>';
 		} else {
@@ -757,14 +801,163 @@ class Settings_Page implements Bootable {
 				echo '<td>' . esc_html( $agent ) . '</td>';
 				echo '<td>' . esc_html( number_format_i18n( $count ) ) . '</td>';
 				echo '<td class="csh-ai-agent-actions">';
-				$this->render_agent_action_button( $agent, 'allow', __( 'Allow', 'copyright-sh-ai-license' ), 'button-secondary' );
-				$this->render_agent_action_button( $agent, 'challenge', __( 'Challenge (402)', 'copyright-sh-ai-license' ), 'button-secondary' );
-				$this->render_agent_action_button( $agent, 'block', __( 'Block', 'copyright-sh-ai-license' ), 'button-secondary button-danger' );
+				$this->render_agent_action_button( $agent, 'allow', __( 'Allow', 'copyright-sh-ai-license' ), 'button-secondary', '✓' );
+				$this->render_agent_action_button( $agent, 'challenge', __( 'Require License', 'copyright-sh-ai-license' ), 'button-secondary', '⚡' );
+				$this->render_agent_action_button( $agent, 'block', __( 'Block', 'copyright-sh-ai-license' ), 'button-secondary button-danger', '🚫' );
 				echo '</td>';
 				echo '</tr>';
 			}
 			echo '</tbody></table>';
 		}
+	}
+
+	/**
+	 * Derive key health metrics for display.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function get_health_snapshot(): array {
+		$jwks_key     = 'csh_ai_license_jwks_cache';
+		$patterns_key = 'csh_ai_license_bot_patterns';
+
+		$jwks_cache   = get_transient( $jwks_key );
+		$patterns     = get_transient( $patterns_key );
+		$queue_stats  = $this->usage_queue ? $this->usage_queue->get_stats() : [];
+
+		$jwks_count     = is_array( $jwks_cache ) ? count( $jwks_cache ) : 0;
+		$patterns_count = is_array( $patterns ) ? count( $patterns ) : 0;
+
+		$jwks_ttl     = $this->format_ttl( $jwks_key );
+		$patterns_ttl = $this->format_ttl( $patterns_key );
+
+		/* translators: %d: Number of JWKS keys cached. */
+		$jwks_status = $jwks_count ? sprintf( _n( '%d key', '%d keys', $jwks_count, 'copyright-sh-ai-license' ), $jwks_count ) : __( 'not cached', 'copyright-sh-ai-license' );
+		$jwks_state  = ( 'expired' === $jwks_ttl ) ? ( $jwks_count ? 'warning' : 'error' ) : ( $jwks_count ? 'ok' : 'warning' );
+
+		/* translators: %d: Number of cached bot patterns. */
+		$patterns_status = $patterns_count ? sprintf( _n( '%d pattern', '%d patterns', $patterns_count, 'copyright-sh-ai-license' ), $patterns_count ) : __( 'not cached', 'copyright-sh-ai-license' );
+		$patterns_state  = ( 'expired' === $patterns_ttl ) ? ( $patterns_count ? 'warning' : 'error' ) : ( $patterns_count ? 'ok' : 'warning' );
+
+		$pending = isset( $queue_stats['pending'] ) ? (int) $queue_stats['pending'] : 0;
+		$failed  = isset( $queue_stats['failed'] ) ? (int) $queue_stats['failed'] : 0;
+		$queue_state = 'ok';
+		if ( $failed > 0 ) {
+			$queue_state = 'error';
+		} elseif ( $pending > 0 ) {
+			$queue_state = 'warning';
+		}
+
+		$last_dispatch_raw = ! empty( $queue_stats['last_dispatch'] ) ? strtotime( $queue_stats['last_dispatch'] . ' UTC' ) : 0;
+		$last_dispatch     = $last_dispatch_raw ? $this->format_datetime( (int) $last_dispatch_raw ) : __( 'Never', 'copyright-sh-ai-license' );
+
+		$queue_summary = ( $pending > 0 || $failed > 0 )
+			? sprintf(
+				/* translators: 1: Number of pending events, 2: Number of failed events. */
+				__( 'Pending: %1$d | Failed: %2$d', 'copyright-sh-ai-license' ),
+				(int) $pending,
+				(int) $failed
+			)
+			: __( 'Queue is clear', 'copyright-sh-ai-license' );
+
+		return [
+			'jwks'    => [
+				'count'       => $jwks_count,
+				'status_text' => $jwks_status,
+				'ttl'         => $jwks_ttl,
+				'state'       => $jwks_state,
+			],
+			'patterns' => [
+				'count'       => $patterns_count,
+				'status_text' => $patterns_status,
+				'ttl'         => $patterns_ttl,
+				'state'       => $patterns_state,
+			],
+			'queue'   => [
+				'pending'       => $pending,
+				'failed'        => $failed,
+				'state'         => $queue_state,
+				'last_dispatch' => $last_dispatch,
+				'summary_text'  => $queue_summary,
+			],
+			'agents'  => $queue_stats['top_agents'] ?? [],
+		];
+	}
+
+	/**
+	 * Render condensed health summary card for sidebar.
+	 */
+	private function render_health_sidebar_card(): void {
+		$metrics = $this->get_health_snapshot();
+
+		$state_styles = [
+			'ok'      => [ 'class' => 'csh-ai-status-badge--ok', 'icon' => '✓' ],
+			'warning' => [ 'class' => 'csh-ai-status-badge--warn', 'icon' => '⚠️' ],
+			'error'   => [ 'class' => 'csh-ai-status-badge--error', 'icon' => '✗' ],
+		];
+
+		$items = [
+			[
+				'title'   => __( 'JWKS Cache', 'copyright-sh-ai-license' ),
+				'summary' => sprintf(
+					/* translators: 1: JWKS cache status text, 2: Expiration descriptor. */
+					__( '%1$s, expires %2$s', 'copyright-sh-ai-license' ),
+					$metrics['jwks']['status_text'],
+					$metrics['jwks']['ttl']
+				),
+				'detail'  => '',
+				'state'   => $metrics['jwks']['state'],
+			],
+			[
+				'title'   => __( 'Bot Patterns', 'copyright-sh-ai-license' ),
+				'summary' => sprintf(
+					/* translators: 1: Bot pattern cache status text, 2: Expiration descriptor. */
+					__( '%1$s, expires %2$s', 'copyright-sh-ai-license' ),
+					$metrics['patterns']['status_text'],
+					$metrics['patterns']['ttl']
+				),
+				'detail'  => '',
+				'state'   => $metrics['patterns']['state'],
+			],
+			[
+				'title'   => __( 'Usage Queue', 'copyright-sh-ai-license' ),
+				'summary' => $metrics['queue']['summary_text'],
+				'detail'  => sprintf(
+					/* translators: %s: Last dispatch timestamp. */
+					__( 'Last dispatch: %s', 'copyright-sh-ai-license' ),
+					$metrics['queue']['last_dispatch']
+				),
+				'state'   => $metrics['queue']['state'],
+			],
+		];
+
+		?>
+		<div class="csh-ai-sidebar-card csh-ai-sidebar-card--health">
+			<div class="csh-ai-sidebar-card__header">
+				<span class="csh-ai-sidebar-kicker"><?php esc_html_e( 'Live status', 'copyright-sh-ai-license' ); ?></span>
+				<h2><?php esc_html_e( 'System Health', 'copyright-sh-ai-license' ); ?></h2>
+				<p><?php esc_html_e( 'Monitor caches, detection queues, and crawler updates at a glance.', 'copyright-sh-ai-license' ); ?></p>
+			</div>
+			<ul class="csh-ai-health-card">
+				<?php foreach ( $items as $item ) :
+					$style = $state_styles[ $item['state'] ] ?? $state_styles['ok'];
+					?>
+					<li class="csh-ai-health-card__item">
+						<span class="csh-ai-status-badge <?php echo esc_attr( $style['class'] ); ?>" aria-hidden="true">
+							<?php echo esc_html( $style['icon'] ); ?>
+						</span>
+						<div class="csh-ai-health-card__body">
+							<span class="csh-ai-health-card__title"><?php echo esc_html( $item['title'] ); ?></span>
+							<span class="csh-ai-health-card__summary"><?php echo esc_html( $item['summary'] ); ?></span>
+							<?php if ( '' !== $item['detail'] ) : ?>
+								<span class="csh-ai-health-card__detail"><?php echo esc_html( $item['detail'] ); ?></span>
+							<?php endif; ?>
+						</div>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+			<a class="csh-ai-health-card__link" href="#csh-ai-enforcement-panel"><?php esc_html_e( 'Open health dashboard', 'copyright-sh-ai-license' ); ?></a>
+		</div>
+		<?php
 	}
 
 	/**
@@ -921,11 +1114,19 @@ class Settings_Page implements Bootable {
 		}
 
 		if ( '' !== $price ) {
-			$policy_meta[] = sprintf( __( 'Price hint: %s', 'copyright-sh-ai-license' ), $price );
+			$policy_meta[] = sprintf(
+				/* translators: %s: Licence price in site currency. */
+				__( 'Price hint: %s', 'copyright-sh-ai-license' ),
+				sanitize_text_field( $price )
+			);
 		}
 
 		if ( '' !== $payto ) {
-			$policy_meta[] = sprintf( __( 'Pay to: %s', 'copyright-sh-ai-license' ), $payto );
+			$policy_meta[] = sprintf(
+				/* translators: %s: Recipient for licence payments. */
+				__( 'Pay to: %s', 'copyright-sh-ai-license' ),
+				sanitize_text_field( $payto )
+			);
 		}
 
 		if ( empty( $policy_meta ) ) {
@@ -937,10 +1138,11 @@ class Settings_Page implements Bootable {
 		if ( ! empty( $observation['enabled'] ) ) {
 			$expires_at = isset( $observation['expires_at'] ) ? (int) $observation['expires_at'] : 0;
 			if ( $expires_at > current_time( 'timestamp' ) ) {
+				$remaining = human_time_diff( current_time( 'timestamp' ), $expires_at );
 				$observation_label = sprintf(
-					/* translators: %s is a formatted date */
-					__( 'Active until %s', 'copyright-sh-ai-license' ),
-					$this->format_datetime( $expires_at )
+					/* translators: %s: Relative time remaining. */
+					__( '%s remaining', 'copyright-sh-ai-license' ),
+					$remaining
 				);
 			} else {
 				$observation_label = __( 'Awaiting next save', 'copyright-sh-ai-license' );
@@ -952,10 +1154,27 @@ class Settings_Page implements Bootable {
 		$window    = isset( $settings['rate_limit']['window'] ) ? (int) $settings['rate_limit']['window'] : 300;
 
 		$step_two_meta = [
-			sprintf( __( 'Profile: %s', 'copyright-sh-ai-license' ), $profile_label ),
-			sprintf( __( 'Observation: %s', 'copyright-sh-ai-license' ), $observation_label ),
-			sprintf( __( 'Score threshold: %d', 'copyright-sh-ai-license' ), $threshold ),
-			sprintf( __( 'Rate limit: %1$d requests / %2$ds', 'copyright-sh-ai-license' ), $requests, $window ),
+			sprintf(
+				/* translators: %s: Selected enforcement profile label. */
+				__( 'Profile: %s', 'copyright-sh-ai-license' ),
+				$profile_label
+			),
+			sprintf(
+				/* translators: %s: Observation mode status text. */
+				__( 'Observation: %s', 'copyright-sh-ai-license' ),
+				$observation_label
+			),
+			sprintf(
+				/* translators: %d: Bot score threshold value. */
+				__( 'Score threshold: %d', 'copyright-sh-ai-license' ),
+				(int) $threshold
+			),
+			sprintf(
+				/* translators: 1: Number of requests allowed, 2: Window in seconds. */
+				__( 'Rate limit: %1$d requests / %2$ds', 'copyright-sh-ai-license' ),
+				(int) $requests,
+				(int) $window
+			),
 		];
 
 		$robots_settings = $settings['robots'] ?? [];
@@ -977,7 +1196,12 @@ class Settings_Page implements Bootable {
 		$pending             = isset( $queue_stats['pending'] ) ? (int) $queue_stats['pending'] : 0;
 		$failed              = isset( $queue_stats['failed'] ) ? (int) $queue_stats['failed'] : 0;
 		$queue_summary       = ( $pending > 0 || $failed > 0 )
-			? sprintf( __( 'Queue: %1$d pending, %2$d failed events', 'copyright-sh-ai-license' ), $pending, $failed )
+			? sprintf(
+				/* translators: 1: Number of pending events, 2: Number of failed events. */
+				__( 'Queue: %1$d pending, %2$d failed events', 'copyright-sh-ai-license' ),
+				(int) $pending,
+				(int) $failed
+			)
 			: __( 'Queue: No pending crawler events', 'copyright-sh-ai-license' );
 		$last_dispatch       = $queue_stats['last_dispatch'] ?? '';
 		$last_dispatch_time  = $last_dispatch ? strtotime( $last_dispatch . ' UTC' ) : false;
@@ -1002,68 +1226,93 @@ class Settings_Page implements Bootable {
 		if ( ! $printed_style ) {
 			$printed_style = true;
 			?>
-			<style>
-				.csh-ai-license-settings .csh-ai-page-lede { margin: 0.4em 0 1.6em; color: #50575e; font-size: 15px; max-width: 72ch; }
-				.csh-ai-settings-form { margin-top: 0; }
-				.csh-ai-settings-form .csh-ai-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
-				.csh-ai-main { display: grid; gap: 24px; }
-				.csh-ai-panel { background: #fff; border: 1px solid #dcdcde; border-radius: 10px; padding: 24px 28px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); }
-				.csh-ai-panel-header h2 { margin: 0; font-size: 20px; line-height: 1.4; }
-				.csh-ai-panel-header p { margin: 8px 0 0; color: #50575e; max-width: 62ch; }
-				.csh-ai-panel .form-table { display: block; margin: 24px 0 0; }
-				.csh-ai-panel .form-table > tbody { display: block; }
-				.csh-ai-panel .form-table > tbody > tr { display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); gap: 16px; padding: 18px 0; border-top: 1px solid #edf0f3; }
-				.csh-ai-panel .form-table > tbody > tr:first-child { border-top: 0; padding-top: 0; }
-				.csh-ai-panel .form-table th { margin: 0; padding: 0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #50575e; font-weight: 600; }
-				.csh-ai-panel .form-table td { margin: 0; padding: 0; }
-				.csh-ai-panel .form-table td .description { margin-top: 8px; }
-				.csh-ai-panel .form-table fieldset { margin: 0; }
-				.csh-ai-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
-				.csh-ai-actions .submit { margin: 0; }
-				.csh-ai-sidebar { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 24px; }
-				.csh-ai-sidebar-card { padding: 22px 24px; border-radius: 12px; border: 1px solid #dce1f4; background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%); box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); }
-				.csh-ai-sidebar-card__header { margin-bottom: 20px; }
-				.csh-ai-sidebar-kicker { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(56, 88, 233, 0.12); color: #2b50d9; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-				.csh-ai-sidebar-card__header h2 { margin: 12px 0 8px; font-size: 18px; line-height: 1.4; }
-				.csh-ai-sidebar-card__header p { margin: 0; color: #4b5563; font-size: 13px; line-height: 1.6; }
-				.csh-ai-step-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
-				.csh-ai-step { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; }
-				.csh-ai-step-index { width: 32px; height: 32px; border-radius: 50%; background: #2b50d9; color: #fff; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 6px 12px rgba(43, 80, 217, 0.25); }
-				.csh-ai-step-body { display: grid; gap: 6px; }
-				.csh-ai-step-title { margin: 0; font-size: 15px; font-weight: 600; color: #111827; }
-				.csh-ai-step-summary { margin: 0; color: #4b5563; font-size: 13px; line-height: 1.6; }
-				.csh-ai-step-meta { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; color: #1f2937; }
-				.csh-ai-step-meta li { display: flex; gap: 6px; align-items: center; line-height: 1.4; }
-				.csh-ai-step .button-link { padding-left: 0; font-weight: 600; }
-				.csh-ai-summary-card { margin: 20px 0; padding: 18px 20px; border: 1px solid #e1e5f2; background: #fefeff; border-radius: 10px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06); }
-				.csh-ai-summary-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 0.4em; }
-				.csh-ai-summary-description { margin: 0 0 0.8em; color: #4b5563; }
-				.csh-ai-summary-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0.75em; }
-				.csh-ai-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.6; background: #ecf2ff; color: #2b50d9; }
-				.csh-ai-badge-profile { background: #f1f5ff; color: #1d4ed8; }
-				.csh-ai-badge-warning { background: #fff4e5; color: #8a5200; }
-				.csh-ai-badge-allow { background: #e6f4ea; color: #1a7f37; }
-				.csh-ai-badge-challenge { background: #edf2ff; color: #3853a4; }
-				.csh-ai-badge-block { background: #fdecea; color: #d93025; }
-				.csh-ai-summary-meta { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: #1f2937; font-size: 12px; }
-				.csh-ai-summary-meta li { display: flex; gap: 6px; align-items: baseline; }
-				.csh-ai-summary-meta strong { min-width: 160px; font-weight: 600; color: #111827; }
-				.csh-ai-summary-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-				.csh-ai-agent-table .button-danger { background: #d63638; border-color: #d63638; color: #fff; }
-				.csh-ai-agent-table .button-danger:hover { background: #a1282a; border-color: #a1282a; color: #fff; }
-				.csh-ai-agent-actions form { margin-bottom: 0; }
-				@media (max-width: 1100px) {
-					.csh-ai-settings-form .csh-ai-layout { grid-template-columns: 1fr; }
-					.csh-ai-sidebar { position: static; }
-				}
-				@media (max-width: 782px) {
-					.csh-ai-settings-form .csh-ai-layout { gap: 16px; }
-					.csh-ai-panel { padding: 20px; }
-					.csh-ai-panel .form-table > tbody > tr { grid-template-columns: 1fr; }
-					.csh-ai-panel .form-table th { text-transform: none; letter-spacing: normal; font-size: 14px; }
-					.csh-ai-actions { justify-content: stretch; }
-				}
-			</style>
+				<style>
+					.csh-ai-license-settings .csh-ai-page-lede { margin: 0.4em 0 1.6em; color: #50575e; font-size: 15px; max-width: 72ch; }
+					.csh-ai-settings-form { margin-top: 0; }
+					.csh-ai-settings-form .csh-ai-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px; align-items: start; }
+					.csh-ai-main { display: grid; gap: 32px; }
+					.csh-ai-panel { position: relative; background: #fff; border: 1px solid #dcdcde; border-radius: 10px; padding: 28px 32px; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06); border-top: 4px solid #e3e8ff; }
+					.csh-ai-panel-header { margin-bottom: 18px; padding-top: 8px; border-top: 1px solid #eef1f6; }
+					.csh-ai-panel-header h2 { margin: 0; font-size: 20px; line-height: 1.4; }
+					.csh-ai-panel-header p { margin: 8px 0 0; color: #50575e; max-width: 62ch; }
+					.csh-ai-panel .form-table { display: block; margin: 24px 0 0; }
+					.csh-ai-panel .form-table > tbody { display: block; }
+					.csh-ai-panel .form-table > tbody > tr { display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); gap: 18px; padding: 20px 0; border-top: 1px solid #edf0f3; }
+					.csh-ai-panel .form-table > tbody > tr:first-child { border-top: 0; padding-top: 0; }
+					.csh-ai-panel .form-table th { margin: 0; padding: 0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #50575e; font-weight: 600; }
+					.csh-ai-panel .form-table td { margin: 0; padding: 0; }
+					.csh-ai-panel .form-table td .description { margin-top: 8px; font-size: 13px; color: #4b5563; }
+					.csh-ai-panel .form-table fieldset { margin: 0; }
+					.csh-ai-actions { margin-top: 12px; display: flex; justify-content: flex-end; }
+					.csh-ai-actions .submit { margin: 0; }
+					.csh-ai-health-warning { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; border: 1px solid #f3b8b7; background: #fff5f5; }
+					.csh-ai-health-summary { margin-bottom: 20px; }
+					.csh-ai-health-summary .description { margin: 0; color: #374151; font-size: 13px; }
+					.csh-ai-sidebar { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 28px; }
+					.csh-ai-sidebar-card { padding: 22px 24px; border-radius: 12px; border: 1px solid #dce1f4; background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%); box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); }
+					.csh-ai-sidebar-card--health { background: #ffffff; border: 1px solid #e0e7ff; box-shadow: 0 10px 26px rgba(43, 80, 217, 0.12); }
+					.csh-ai-sidebar-card__header { margin-bottom: 18px; }
+					.csh-ai-sidebar-kicker { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(56, 88, 233, 0.12); color: #2b50d9; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+					.csh-ai-sidebar-card__header h2 { margin: 12px 0 8px; font-size: 18px; line-height: 1.4; }
+					.csh-ai-sidebar-card__header p { margin: 0; color: #4b5563; font-size: 13px; line-height: 1.6; }
+					.csh-ai-health-card { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+					.csh-ai-health-card__item { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: start; }
+					.csh-ai-status-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+					.csh-ai-status-badge--ok { background: #e6f4ea; color: #1a7f37; }
+					.csh-ai-status-badge--warn { background: #fff7e6; color: #b45309; }
+					.csh-ai-status-badge--error { background: #fdecea; color: #d93025; }
+					.csh-ai-health-card__body { display: grid; gap: 4px; }
+					.csh-ai-health-card__title { font-weight: 600; color: #111827; font-size: 13px; }
+					.csh-ai-health-card__summary { font-size: 12px; color: #1f2937; }
+					.csh-ai-health-card__detail { font-size: 12px; color: #6b7280; }
+					.csh-ai-health-card__link { margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; color: #2b50d9; text-decoration: none; }
+					.csh-ai-health-card__link:hover { text-decoration: underline; }
+					.csh-ai-step-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+					.csh-ai-step { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; }
+					.csh-ai-step-index { width: 32px; height: 32px; border-radius: 50%; background: #2b50d9; color: #fff; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 6px 12px rgba(43, 80, 217, 0.25); }
+					.csh-ai-step-body { display: grid; gap: 6px; }
+					.csh-ai-step-title { margin: 0; font-size: 15px; font-weight: 600; color: #111827; }
+					.csh-ai-step-summary { margin: 0; color: #4b5563; font-size: 13px; line-height: 1.6; }
+					.csh-ai-step-meta { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; color: #1f2937; }
+					.csh-ai-step-meta li { display: flex; gap: 6px; align-items: center; line-height: 1.4; }
+					.csh-ai-step .button-link { padding-left: 0; font-weight: 600; }
+					.csh-ai-summary-card { margin: 20px 0; padding: 18px 20px; border: 1px solid #e1e5f2; background: #fefeff; border-radius: 10px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06); }
+					.csh-ai-summary-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 0.4em; }
+					.csh-ai-summary-description { margin: 0 0 0.8em; color: #4b5563; }
+					.csh-ai-summary-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0.75em; }
+					.csh-ai-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.6; background: #ecf2ff; color: #2b50d9; }
+					.csh-ai-badge-profile { background: #f1f5ff; color: #1d4ed8; }
+					.csh-ai-badge-warning { background: #fff4e5; color: #8a5200; }
+					.csh-ai-badge-allow { background: #e6f4ea; color: #1a7f37; }
+					.csh-ai-badge-challenge { background: #edf2ff; color: #3853a4; }
+					.csh-ai-badge-block { background: #fdecea; color: #d93025; }
+					.csh-ai-badge-error { background: #fdecea; color: #b42318; }
+					.csh-ai-summary-meta { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: #1f2937; font-size: 12px; }
+					.csh-ai-summary-meta li { display: flex; gap: 6px; align-items: baseline; }
+					.csh-ai-summary-meta strong { min-width: 160px; font-weight: 600; color: #111827; }
+					.csh-ai-summary-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+					.csh-ai-agent-actions { display: flex; align-items: center; gap: 8px; }
+					.csh-ai-agent-form { margin: 0; }
+					.csh-ai-agent-action { width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; padding: 0; }
+					.csh-ai-agent-action__icon { font-size: 18px; }
+					.csh-ai-agent-table .button-danger { background: #d63638; border-color: #d63638; color: #fff; }
+					.csh-ai-agent-table .button-danger:hover { background: #a1282a; border-color: #a1282a; color: #fff; }
+					.csh-ai-robots-preview { border: 1px solid #dcdcde; border-radius: 10px; overflow: hidden; background: #fff; }
+					.csh-ai-robots-preview summary { cursor: pointer; padding: 12px 16px; font-weight: 600; color: #2b50d9; list-style: none; outline: none; }
+					.csh-ai-robots-preview summary::-webkit-details-marker { display: none; }
+					.csh-ai-robots-preview__content { margin: 0; padding: 16px; background: #f8fafc; max-height: 260px; overflow: auto; font-family: Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
+					@media (max-width: 1100px) {
+						.csh-ai-settings-form .csh-ai-layout { grid-template-columns: 1fr; gap: 24px; }
+						.csh-ai-sidebar { position: static; }
+					}
+					@media (max-width: 782px) {
+						.csh-ai-settings-form .csh-ai-layout { gap: 16px; }
+						.csh-ai-panel { padding: 24px; }
+						.csh-ai-panel .form-table > tbody > tr { grid-template-columns: 1fr; }
+						.csh-ai-panel .form-table th { text-transform: none; letter-spacing: normal; font-size: 14px; }
+						.csh-ai-actions { justify-content: stretch; }
+					}
+				</style>
 			<?php
 		}
 
@@ -1133,17 +1382,37 @@ class Settings_Page implements Bootable {
 	 * @param string $label    Button label.
 	 * @param string $classes  Button CSS classes.
 	 */
-	private function render_agent_action_button( string $agent, string $decision, string $label, string $classes ): void {
+	private function render_agent_action_button( string $agent, string $decision, string $label, string $classes, string $icon = '' ): void {
 		$action_url = admin_url( 'admin-post.php' );
 		$form_referer = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : admin_url( 'options-general.php?page=csh-ai-license' );
 		?>
-		<form method="post" action="<?php echo esc_url( $action_url ); ?>" style="display:inline-block;margin-right:6px;">
+		<form method="post" action="<?php echo esc_url( $action_url ); ?>" class="csh-ai-agent-form">
 			<input type="hidden" name="action" value="csh_ai_adjust_agent" />
 			<input type="hidden" name="agent" value="<?php echo esc_attr( $agent ); ?>" />
 			<input type="hidden" name="decision" value="<?php echo esc_attr( $decision ); ?>" />
 			<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( $form_referer ); ?>" />
 			<?php wp_nonce_field( 'csh_ai_adjust_agent' ); ?>
-			<button type="submit" class="<?php echo esc_attr( trim( $classes . ' csh-ai-agent-action' ) ); ?>"><?php echo esc_html( $label ); ?></button>
+			<?php
+			$button_classes = trim( $classes . ' csh-ai-agent-action' );
+			$icon_markup    = '';
+			if ( '' !== $icon ) {
+				$icon_markup = sprintf(
+					'<span aria-hidden="true" class="csh-ai-agent-action__icon">%s</span><span class="screen-reader-text">%s</span>',
+					esc_html( $icon ),
+					esc_html( $label )
+				);
+			}
+			?>
+			<button type="submit" class="<?php echo esc_attr( $button_classes ); ?>" aria-label="<?php echo esc_attr( $label ); ?>" title="<?php echo esc_attr( $label ); ?>">
+				<?php
+				if ( $icon_markup ) {
+					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Icon markup components escaped above.
+					echo $icon_markup;
+				} else {
+					echo esc_html( $label );
+				}
+				?>
+			</button>
 		</form>
 		<?php
 	}

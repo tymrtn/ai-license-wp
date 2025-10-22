@@ -141,19 +141,18 @@ class Meta_Box implements Bootable {
 			return;
 		}
 
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Array is unslashed here, individual fields sanitized below.
-		$meta = isset( $_POST['csh_ai_license_meta'] ) && is_array( $_POST['csh_ai_license_meta'] )
+		$meta_input = isset( $_POST['csh_ai_license_meta'] ) && is_array( $_POST['csh_ai_license_meta'] )
 			? wp_unslash( $_POST['csh_ai_license_meta'] )
 			: [];
 
-		$enabled = ! empty( $meta['enabled'] );
+		$enabled = ! empty( $meta_input['enabled'] );
 
 		$sanitized = [
 			'enabled'      => $enabled,
-			'mode'         => in_array( $meta['mode'] ?? '', [ 'allow', 'deny' ], true ) ? $meta['mode'] : '',
-			'distribution' => in_array( $meta['distribution'] ?? '', [ '', 'private', 'public' ], true ) ? $meta['distribution'] : '',
-			'price'        => sanitize_text_field( $meta['price'] ?? '' ),
-			'payto'        => sanitize_text_field( $meta['payto'] ?? '' ),
+			'mode'         => in_array( $meta_input['mode'] ?? '', [ 'allow', 'deny' ], true ) ? sanitize_text_field( $meta_input['mode'] ) : '',
+			'distribution' => in_array( $meta_input['distribution'] ?? '', [ '', 'private', 'public' ], true ) ? sanitize_text_field( $meta_input['distribution'] ) : '',
+			'price'        => sanitize_text_field( $meta_input['price'] ?? '' ),
+			'payto'        => sanitize_text_field( $meta_input['payto'] ?? '' ),
 		];
 
 		if ( $enabled ) {
