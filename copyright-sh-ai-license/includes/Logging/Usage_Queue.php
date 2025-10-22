@@ -168,6 +168,7 @@ class Usage_Queue implements Bootable {
 			'attempts'         => 0,
 		];
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write with specific schema.
 		$wpdb->insert(
 			$table,
 			$payload,
@@ -302,16 +303,20 @@ class Usage_Queue implements Bootable {
 		}
 
 		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-		$params       = array_merge( [ current_time( 'mysql', 1 ), $code ], $ids );
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct query required for custom table batch update.
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Table name is escaped, placeholders generated dynamically for IN clause.
-		$wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$table} SET status = 'sent', dispatch_ts = %s, response_code = %d, error_message = NULL WHERE id IN ({$placeholders})",
-				$params
-			)
+		$params       = array_map( 'intval', $ids );
+		$params       = array_merge(
+			[
+				'sent',
+				current_time( 'mysql', 1 ),
+				(int) $code,
+			],
+			$params
 		);
+
+		$sql       = "UPDATE {$table} SET status = %s, dispatch_ts = %s, response_code = %d, error_message = NULL WHERE id IN ({$placeholders})";
+		$prepared  = call_user_func_array( [ $wpdb, 'prepare' ], array_merge( [ $sql ], $params ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Custom table batch update requires direct query with dynamic IN clause.
+		$wpdb->query( $prepared );
 	}
 
 	/**
@@ -332,19 +337,20 @@ class Usage_Queue implements Bootable {
 			$attempts = (int) $event['attempts'] + 1;
 			$status   = ( $retryable && $attempts < $max_attempts ) ? 'retrying' : 'failed';
 
-			$wpdb->update(
-				$table,
-				[
-					'error_message'  => $message,
-					'response_code'  => $code ?: null,
-					'attempts'       => $attempts,
-					'status'         => $status,
-					'dispatch_ts'    => null,
-				],
-				[ 'id' => $id ],
-				[ '%s', '%d', '%d', '%s', '%s' ],
-				[ '%d' ]
-			);
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table maintenance requires direct update.
+				$wpdb->update(
+					$table,
+					[
+						'error_message'  => $message,
+						'response_code'  => $code ?: null,
+						'attempts'       => $attempts,
+						'status'         => $status,
+						'dispatch_ts'    => null,
+					],
+					[ 'id' => $id ],
+					[ '%s', '%d', '%d', '%s', '%s' ],
+					[ '%d' ]
+				);
 		}
 	}
 

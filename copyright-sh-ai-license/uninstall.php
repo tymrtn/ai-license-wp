@@ -30,7 +30,7 @@ foreach ( $transients as $transient ) {
 // Drop usage queue table if it exists.
 global $wpdb;
 $table = $wpdb->prefix . 'csh_ai_usage_queue';
-// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Uninstall requires table drop, prefix is trusted.
+// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Uninstall requires table drop, prefix is trusted.
 $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
 
 // Only delete robots.txt if it still matches our signature to avoid clobbering manual edits.

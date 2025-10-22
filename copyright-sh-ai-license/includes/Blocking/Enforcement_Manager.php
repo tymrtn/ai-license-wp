@@ -435,30 +435,46 @@ class Enforcement_Manager implements Bootable {
 	 */
 	private function build_request_context(): Request_Context {
 		$headers = [];
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Server headers used for bot detection, not displayed.
 		foreach ( $_SERVER as $key => $value ) {
 			if ( 0 === strpos( $key, 'HTTP_' ) ) {
-				$header_name         = str_replace( ' ', '-', ucwords( strtolower( str_replace( '_', ' ', substr( $key, 5 ) ) ) ) );
-				$headers[ $header_name ] = is_array( $value ) ? implode( ',', $value ) : (string) $value;
+				$header_name = str_replace(
+					' ',
+					'-',
+					ucwords(
+						strtolower(
+							str_replace( '_', ' ', substr( $key, 5 ) )
+						)
+					)
+				);
+				$header_value = wp_unslash( $value );
+				if ( is_array( $header_value ) ) {
+					$header_value = implode(
+						',',
+						array_map(
+							'sanitize_text_field',
+							array_map( 'strval', $header_value )
+						)
+					);
+				} else {
+					$header_value = sanitize_text_field( (string) $header_value );
+				}
+
+				$headers[ $header_name ] = $header_value;
 			}
 		}
 
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Server variable used for bot detection.
 		if ( isset( $_SERVER['CONTENT_TYPE'] ) ) {
-			$headers['Content-Type'] = (string) $_SERVER['CONTENT_TYPE'];
+			$headers['Content-Type'] = sanitize_text_field( wp_unslash( (string) $_SERVER['CONTENT_TYPE'] ) );
 		}
 
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Server variable used for bot detection.
 		if ( isset( $_SERVER['CONTENT_LENGTH'] ) ) {
-			$headers['Content-Length'] = (string) $_SERVER['CONTENT_LENGTH'];
+			$headers['Content-Length'] = (string) absint( wp_unslash( (string) $_SERVER['CONTENT_LENGTH'] ) );
 		}
 
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Server variable used for bot detection.
-		$user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Server variable used for bot detection.
-		$method     = isset( $_SERVER['REQUEST_METHOD'] ) ? (string) $_SERVER['REQUEST_METHOD'] : 'GET';
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Server variable used for bot detection.
-		$uri        = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '/';
+		$user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+		$method     = isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REQUEST_METHOD'] ) ) : 'GET';
+		$uri_raw    = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( (string) $_SERVER['REQUEST_URI'] ) : '/';
+		$uri        = sanitize_text_field( $uri_raw );
 		$path       = is_string( $uri ) ? (string) wp_parse_url( $uri, PHP_URL_PATH ) : '/';
 
 		$ip = $this->resolve_ip_address( $headers );
@@ -490,9 +506,8 @@ class Enforcement_Manager implements Bootable {
 			$candidates[] = trim( $headers['X-Real-IP'] );
 		}
 
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Server variable used for bot detection.
 		if ( isset( $_SERVER['REMOTE_ADDR'] ) ) {
-			$candidates[] = (string) $_SERVER['REMOTE_ADDR'];
+			$candidates[] = sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) );
 		}
 
 		foreach ( $candidates as $candidate ) {
