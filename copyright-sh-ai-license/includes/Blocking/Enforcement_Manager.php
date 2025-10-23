@@ -8,6 +8,7 @@
 namespace CSH\AI_License\Blocking;
 
 use CSH\AI_License\Auth\Token_Verifier;
+use CSH\AI_License\Auth\Hmac_Token_Verifier;
 use CSH\AI_License\Contracts\Bootable;
 use CSH\AI_License\Service_Provider;
 use CSH\AI_License\Settings\Options_Repository;
@@ -68,6 +69,13 @@ class Enforcement_Manager implements Bootable {
 	private $token_verifier;
 
 	/**
+	 * HMAC token verifier.
+	 *
+	 * @var \CSH\AI_License\Auth\Hmac_Token_Verifier|null
+	 */
+	private $hmac_verifier;
+
+	/**
 	 * Runtime decision cached per request.
 	 *
 	 * @var Decision|null
@@ -94,12 +102,13 @@ class Enforcement_Manager implements Bootable {
 	 * @param Service_Provider $services Service container.
 	 */
 	public function __construct( Service_Provider $services ) {
-		$this->services      = $services;
-		$this->options       = null;
-		$this->detector      = null;
-		$this->rate_limiter  = null;
-		$this->responses     = null;
+		$this->services       = $services;
+		$this->options        = null;
+		$this->detector       = null;
+		$this->rate_limiter   = null;
+		$this->responses      = null;
 		$this->token_verifier = null;
+		$this->hmac_verifier  = null;
 		$this->usage_queue    = null;
 	}
 
@@ -173,6 +182,26 @@ class Enforcement_Manager implements Bootable {
 		if ( $analysis['block_listed'] ?? false ) {
 			$this->finalize_decision( $responses->forbidden( 'block_list', $analysis ), $analysis, $context );
 			return;
+		}
+
+		// Check for HMAC license token in URL parameter (takes precedence over JWT)
+		$ai_license_param = isset( $_GET['ai-license'] ) ? sanitize_text_field( wp_unslash( $_GET['ai-license'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( '' !== $ai_license_param ) {
+			$hmac_verifier = $this->get_hmac_verifier();
+			if ( $hmac_verifier ) {
+				$verification = $hmac_verifier->verify( $ai_license_param, $context );
+				if ( $verification['valid'] ) {
+					$analysis['hmac_valid'] = true;
+					$analysis['license_token'] = $verification['data'];
+					$this->finalize_decision( $responses->allow( $analysis + [ 'reason' => 'hmac_license_valid' ] ), $analysis, $context );
+					return;
+				}
+
+				// Invalid HMAC token - return 401 Unauthorized
+				$analysis['hmac_error'] = $verification['error'];
+				$this->finalize_decision( $responses->unauthorized( $verification['error'], $analysis ), $analysis, $context );
+				return;
+			}
 		}
 
 		$auth_header = $context->header( 'Authorization' );
@@ -312,16 +341,24 @@ class Enforcement_Manager implements Bootable {
 		$purpose = 'ai-crawl';
 		if ( Decision::ACTION_BLOCK === $decision->action() ) {
 			$purpose = 'ai-crawl-blocked';
-		} elseif ( ! empty( $analysis['token_valid'] ) ) {
+		} elseif ( ! empty( $analysis['token_valid'] ) || ! empty( $analysis['hmac_valid'] ) ) {
 			$purpose = 'ai-crawl-licensed';
+		}
+
+		$token_type = '';
+		if ( ! empty( $analysis['token_valid'] ) ) {
+			$token_type = 'jwt';
+		} elseif ( ! empty( $analysis['hmac_valid'] ) ) {
+			$token_type = 'hmac';
 		}
 
 		$queue->enqueue(
 			[
 				'request_url'      => $this->build_request_url( $context ),
 				'purpose'          => $purpose,
-				'token_type'       => ! empty( $analysis['token_valid'] ) ? 'jwt' : '',
+				'token_type'       => $token_type,
 				'token_claims'     => $analysis['token']['claims'] ?? [],
+				'license_token'    => $analysis['license_token'] ?? [],
 				'estimated_tokens' => $analysis['token']['claims']['estimated_tokens'] ?? null,
 				'user_agent'       => $context->user_agent(),
 			]
@@ -699,5 +736,22 @@ class Enforcement_Manager implements Bootable {
 		}
 
 		return $this->usage_queue;
+	}
+
+	/**
+	 * Retrieve HMAC token verifier.
+	 *
+	 * @return Hmac_Token_Verifier|null
+	 */
+	private function get_hmac_verifier(): ?Hmac_Token_Verifier {
+		if ( $this->hmac_verifier ) {
+			return $this->hmac_verifier;
+		}
+
+		if ( $this->services->has( Hmac_Token_Verifier::class ) ) {
+			$this->hmac_verifier = $this->services->get( Hmac_Token_Verifier::class );
+		}
+
+		return $this->hmac_verifier;
 	}
 }

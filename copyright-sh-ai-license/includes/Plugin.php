@@ -12,6 +12,7 @@ use CSH\AI_License\Admin\Notices;
 use CSH\AI_License\Admin\Settings_Page;
 use CSH\AI_License\Auth\Jwks_Cache;
 use CSH\AI_License\Auth\Token_Verifier;
+use CSH\AI_License\Auth\Hmac_Token_Verifier;
 use CSH\AI_License\Blocking\Bot_Detector;
 use CSH\AI_License\Blocking\Enforcement_Manager;
 use CSH\AI_License\Blocking\Patterns_Repository;
@@ -182,6 +183,15 @@ final class Plugin {
 					$container->get( Jwks_Cache::class ),
 					$container->get( Transient_Helper::class ),
 					$container->get( Clock::class )
+				);
+			}
+		);
+
+		$services->set(
+			Hmac_Token_Verifier::class,
+			static function ( Service_Provider $container ) {
+				return new Hmac_Token_Verifier(
+					$container->get( Options_Repository::class )
 				);
 			}
 		);

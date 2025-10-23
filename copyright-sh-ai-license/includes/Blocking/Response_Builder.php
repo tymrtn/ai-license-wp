@@ -51,16 +51,23 @@ class Response_Builder {
 	public function payment_required( array $context ): Decision {
 		$policy   = $this->options->get_settings()['policy'] ?? [];
 		$license  = $this->build_license_string( $policy );
-		$offers   = $this->build_offers( $context );
+		$price    = isset( $policy['price'] ) && '' !== $policy['price'] ? (float) $policy['price'] : 0.10;
+		$payto    = $policy['payto'] ?? '';
+
+		if ( '' === $payto ) {
+			$domain = wp_parse_url( home_url(), PHP_URL_HOST );
+			if ( $domain ) {
+				$payto = $domain;
+			}
+		}
+
 		$body     = [
-			'version'               => '1.0',
-			'type'                  => 'https://copyright.sh/problems/payment-required',
-			'title'                 => __( 'AI Content License Required', 'copyright-sh-ai-license' ),
-			'detail'                => __( 'This content requires a valid AI usage licence or payment.', 'copyright-sh-ai-license' ),
-			'payment_request_url'   => apply_filters( 'csh_ai_payment_request_url', 'https://ledger.copyright.sh/v1/payment-request' ),
-			'payment_context_token' => $this->generate_context_token( $context ),
-			'offers'                => $offers,
-			'terms_url'             => apply_filters( 'csh_ai_terms_url', 'https://copyright.sh/terms' ),
+			'error'                 => 'Payment Required',
+			'price_per_1k_tokens'   => $price,
+			'currency'              => 'USD',
+			'payto'                 => $payto,
+			'acquire_license_url'   => apply_filters( 'csh_ai_acquire_license_url', 'https://ai-license-ledger.ddev.site/api/v1/licenses/acquire' ),
+			'documentation'         => apply_filters( 'csh_ai_license_docs_url', 'https://docs.copyright.sh/api/licenses' ),
 		];
 
 		$headers = [

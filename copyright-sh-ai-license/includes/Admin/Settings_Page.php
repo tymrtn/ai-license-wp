@@ -247,6 +247,14 @@ class Settings_Page implements Bootable {
 			'csh_ai_license_policy'
 		);
 
+		add_settings_field(
+			'hmac_secret',
+			__( 'HMAC License Secret', 'copyright-sh-ai-license' ),
+			[ $this, 'render_hmac_secret_field' ],
+			self::PAGE_TERMS,
+			'csh_ai_license_policy'
+		);
+
 		add_settings_section(
 			'csh_ai_license_enforcement',
 			__( 'Crawler Enforcement', 'copyright-sh-ai-license' ),
@@ -491,6 +499,32 @@ class Settings_Page implements Bootable {
 		</p>
 		<p class="description">
 			<?php esc_html_e( 'Set payment recipient and amount for AI usage licences. Leave blank to use site domain.', 'copyright-sh-ai-license' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render HMAC secret field.
+	 */
+	public function render_hmac_secret_field(): void {
+		$settings    = $this->options->get_settings();
+		$hmac_secret = $settings['hmac_secret'] ?? '';
+		?>
+		<p>
+			<label for="csh-ai-hmac-secret">
+				<?php esc_html_e( 'HMAC Secret Key', 'copyright-sh-ai-license' ); ?>
+			</label>
+			<input
+				id="csh-ai-hmac-secret"
+				type="password"
+				class="regular-text"
+				name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[hmac_secret]"
+				value="<?php echo esc_attr( $hmac_secret ); ?>"
+				autocomplete="off"
+			/>
+		</p>
+		<p class="description">
+			<?php esc_html_e( 'Secret key for validating HMAC license tokens in URL parameters (ai-license=version-signature). Get this from your AI License Ledger admin dashboard. Required for HTTP 402 payment blocking to work.', 'copyright-sh-ai-license' ); ?>
 		</p>
 		<?php
 	}
