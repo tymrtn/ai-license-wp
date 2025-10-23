@@ -27,6 +27,7 @@ class Defaults {
 				'price'        => '0.10',
 				'payto'        => '',
 			],
+			'hmac_secret' => '', // HMAC secret for license token validation
 			'profile'   => [
 				'selected'         => 'default',
 				'applied'          => false,
