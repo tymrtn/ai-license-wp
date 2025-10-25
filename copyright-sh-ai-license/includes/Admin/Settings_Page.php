@@ -1041,6 +1041,13 @@ class Settings_Page implements Bootable {
 	$sanitized['policy']['price'] = sanitize_text_field( $policy['price'] ?? ( $current['policy']['price'] ?? $defaults['policy']['price'] ) );
 	$sanitized['policy']['payto'] = sanitize_text_field( $policy['payto'] ?? ( $current['policy']['payto'] ?? '' ) );
 
+	// Sanitize HMAC secret (64-character hex string)
+	if ( isset( $input['hmac_secret'] ) && '' !== trim( $input['hmac_secret'] ) ) {
+		$sanitized['hmac_secret'] = sanitize_text_field( $input['hmac_secret'] );
+	} elseif ( isset( $current['hmac_secret'] ) ) {
+		$sanitized['hmac_secret'] = $current['hmac_secret'];
+	}
+
 	if ( isset( $input['profile']['selected'] ) ) {
 		$sanitized['profile']['selected'] = sanitize_text_field( $input['profile']['selected'] );
 		$sanitized['profile']['applied']  = false; // force reapply on next load.
