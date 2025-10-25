@@ -208,6 +208,30 @@ class Settings_Page implements Bootable {
 		add_action( 'admin_init', [ $this, 'register_settings' ] );
 		add_action( 'admin_menu', [ $this, 'register_menu' ] );
 		add_action( 'admin_post_csh_ai_adjust_agent', [ $this, 'handle_agent_adjustment' ] );
+		add_filter( 'wp_redirect', [ $this, 'fix_settings_redirect' ], 10, 2 );
+	}
+
+	/**
+	 * Fix redirect after settings save to go back to our settings page instead of options.php.
+	 *
+	 * @param string $location Redirect URL.
+	 * @param int    $status   HTTP status code.
+	 * @return string Modified redirect URL.
+	 */
+	public function fix_settings_redirect( string $location, int $status ): string {
+		// Only intercept redirects from options.php for our settings
+		if ( ! isset( $_POST['option_page'] ) || $_POST['option_page'] !== 'csh_ai_license_group' ) {
+			return $location;
+		}
+
+		// Redirect back to our settings page with success message
+		return add_query_arg(
+			[
+				'page'             => self::PAGE_SLUG,
+				'settings-updated' => 'true',
+			],
+			admin_url( 'options-general.php' )
+		);
 	}
 
 	/**
