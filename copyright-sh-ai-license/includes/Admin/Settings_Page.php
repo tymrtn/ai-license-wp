@@ -219,8 +219,13 @@ class Settings_Page implements Bootable {
 	 * @return string Modified redirect URL.
 	 */
 	public function fix_settings_redirect( string $location, int $status ): string {
-		// Only intercept redirects from options.php for our settings
-		if ( ! isset( $_POST['option_page'] ) || $_POST['option_page'] !== 'csh_ai_license_group' ) {
+		// Check if we're being redirected to options.php with our settings group
+		if ( false === strpos( $location, 'options.php' ) ) {
+			return $location;
+		}
+
+		// Check if this is our settings group by looking at the URL parameters
+		if ( false === strpos( $location, 'csh_ai_license_group' ) && false === strpos( $location, self::PAGE_SLUG ) ) {
 			return $location;
 		}
 
