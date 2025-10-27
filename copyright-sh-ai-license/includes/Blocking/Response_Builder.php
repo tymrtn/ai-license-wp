@@ -62,6 +62,7 @@ class Response_Builder {
 		}
 
 		$body     = [
+			'status'                => 402,
 			'error'                 => 'Payment Required',
 			'price_per_1k_tokens'   => $price,
 			'currency'              => 'USD',
@@ -71,11 +72,11 @@ class Response_Builder {
 		];
 
 		$headers = [
-			'WWW-Authenticate' => 'License realm="copyright.sh", methods="x402 jwt hmac-sha256"',
-			'X-License-Terms'  => $license,
-			'Link'             => '<https://ledger.copyright.sh/register>; rel="license-register"',
-			'Cache-Control'    => 'private, no-store',
-			'Content-Type'     => 'application/json',
+			'X-License-Authenticate' => 'License realm="copyright.sh", methods="x402 jwt hmac-sha256"',
+			'X-License-Terms'        => $license,
+			'Link'                   => '<https://ledger.copyright.sh/register>; rel="license-register"',
+			'Cache-Control'          => 'private, no-store',
+			'Content-Type'           => 'application/json',
 		];
 
 		return new Decision(
@@ -210,7 +211,12 @@ class Response_Builder {
 			nocache_headers();
 		}
 
+		error_log( '[csh-ai-license] dispatch status: ' . $status );
+
 		status_header( $status );
+		if ( function_exists( 'http_response_code' ) ) {
+			http_response_code( $status );
+		}
 
 		foreach ( $decision->headers() as $header => $value ) {
 			header( $header . ': ' . $value );
