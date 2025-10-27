@@ -7,6 +7,7 @@
 
 namespace CSH\AI_License;
 
+use CSH\AI_License\Admin\Account_Manager;
 use CSH\AI_License\Admin\Meta_Box;
 use CSH\AI_License\Admin\Notices;
 use CSH\AI_License\Admin\Settings_Page;
@@ -267,6 +268,13 @@ final class Plugin {
 		);
 
 		$services->set(
+			Account_Manager::class,
+			static function ( Service_Provider $container ) {
+				return new Account_Manager( $container->get( Options_Repository::class ) );
+			}
+		);
+
+		$services->set(
 			Settings_Page::class,
 			static function ( Service_Provider $container ) {
 				return new Settings_Page(
@@ -306,6 +314,7 @@ final class Plugin {
 	private function register_modules(): void {
 		$modules = [
 			Settings_Page::class,
+			Account_Manager::class,
 			Meta_Box::class,
 			Robots_Manager::class,
 			Notices::class,

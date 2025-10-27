@@ -42,10 +42,15 @@ class Options_Repository {
 	 * @return array
 	 */
 	public function get_settings(): array {
-		$saved = get_option( self::OPTION_SETTINGS, null );
+		$saved          = get_option( self::OPTION_SETTINGS, null );
+		$migrated_value = false;
 
 		if ( null === $saved ) {
-			$saved = get_option( 'csh_ai_license_global_settings', [] );
+			$legacy = get_option( 'csh_ai_license_global_settings', [] );
+			if ( is_array( $legacy ) && ! empty( $legacy ) ) {
+				$saved          = $legacy;
+				$migrated_value = true;
+			}
 		}
 
 		if ( ! is_array( $saved ) ) {
@@ -53,7 +58,7 @@ class Options_Repository {
 		}
 
 		$normalised = $this->normalise_settings( $saved );
-		$normalised = wp_parse_args( $normalised, $this->defaults->global() );
+		$normalised = $this->merge_defaults_recursive( $normalised, $this->defaults->global() );
 
 		$selected_profile = $normalised['profile']['selected'] ?? 'default';
 		if ( empty( $normalised['profile']['applied'] ) ) {
@@ -69,6 +74,10 @@ class Options_Repository {
 			}
 		}
 
+		if ( $migrated_value ) {
+			update_option( self::OPTION_SETTINGS, $normalised );
+		}
+
 		return $normalised;
 	}
 
@@ -82,58 +91,153 @@ class Options_Repository {
 		$defaults = $this->defaults->global();
 
 		if ( isset( $settings['policy'] ) ) {
-			// Assume already new schema.
-			$settings['policy']['mode']          = in_array( $settings['policy']['mode'] ?? '', [ 'allow', 'deny' ], true ) ? $settings['policy']['mode'] : $defaults['policy']['mode'];
-			$settings['policy']['distribution']  = in_array( $settings['policy']['distribution'] ?? '', [ '', 'private', 'public' ], true ) ? $settings['policy']['distribution'] : '';
-			$settings['policy']['price']         = sanitize_text_field( $settings['policy']['price'] ?? $defaults['policy']['price'] );
-			$settings['policy']['payto']         = sanitize_text_field( $settings['policy']['payto'] ?? $defaults['policy']['payto'] );
+			$policy = is_array( $settings['policy'] ) ? $settings['policy'] : [];
+			$policy = $this->merge_defaults_recursive( $policy, $defaults['policy'] );
 
-			$settings['profile'] = wp_parse_args(
-				$settings['profile'] ?? [],
-				$defaults['profile']
-			);
+			$policy['mode']         = in_array( $policy['mode'] ?? '', [ 'allow', 'deny' ], true ) ? $policy['mode'] : $defaults['policy']['mode'];
+			$policy['distribution'] = in_array( $policy['distribution'] ?? '', [ '', 'private', 'public' ], true ) ? $policy['distribution'] : '';
+			$policy['price']        = sanitize_text_field( $policy['price'] ?? $defaults['policy']['price'] );
+			$policy['payto']        = sanitize_text_field( $policy['payto'] ?? $defaults['policy']['payto'] );
 
-			$settings['robots']['manage']   = ! empty( $settings['robots']['manage'] );
-			$settings['robots']['ai_rules'] = ! empty( $settings['robots']['ai_rules'] );
-			$settings['robots']['content']  = (string) ( $settings['robots']['content'] ?? '' );
+			$settings['policy'] = $policy;
 
-			// Backward compatibility for learning_mode -> observation_mode.
-			if ( isset( $settings['enforcement']['learning_mode'] ) && ! isset( $settings['enforcement']['observation_mode'] ) ) {
-				$settings['enforcement']['observation_mode'] = $settings['enforcement']['learning_mode'];
-				unset( $settings['enforcement']['learning_mode'] );
+			$profile = is_array( $settings['profile'] ?? null ) ? $settings['profile'] : [];
+			$profile = $this->merge_defaults_recursive( $profile, $defaults['profile'] );
+			$profile['selected'] = sanitize_text_field( $profile['selected'] ?? 'default' );
+
+			$settings['profile'] = $profile;
+
+			$enforcement = is_array( $settings['enforcement'] ?? null ) ? $settings['enforcement'] : [];
+			if ( isset( $enforcement['learning_mode'] ) && ! isset( $enforcement['observation_mode'] ) ) {
+				$enforcement['observation_mode'] = $enforcement['learning_mode'];
+				unset( $enforcement['learning_mode'] );
 			}
 
-			$settings['enforcement']['observation_mode'] = wp_parse_args(
-				$settings['enforcement']['observation_mode'] ?? [],
+			$enforcement               = $this->merge_defaults_recursive( $enforcement, $defaults['enforcement'] );
+			$enforcement['enabled']    = ! empty( $enforcement['enabled'] );
+			$enforcement['threshold']  = max( 0, min( 100, (int) ( $enforcement['threshold'] ?? $defaults['enforcement']['threshold'] ) ) );
+			$enforcement['observation_mode'] = $this->merge_defaults_recursive(
+				is_array( $enforcement['observation_mode'] ?? null ) ? $enforcement['observation_mode'] : [],
 				$defaults['enforcement']['observation_mode']
+			);
+			$enforcement['observation_mode']['enabled']  = ! empty( $enforcement['observation_mode']['enabled'] );
+			$enforcement['observation_mode']['duration'] = max( 0, (int) $enforcement['observation_mode']['duration'] );
+			$enforcement['observation_mode']['expires_at'] = (int) ( $enforcement['observation_mode']['expires_at'] ?? 0 );
+
+			$settings['enforcement'] = $enforcement;
+
+			$rate_limit = is_array( $settings['rate_limit'] ?? null ) ? $settings['rate_limit'] : [];
+			$rate_limit = $this->merge_defaults_recursive( $rate_limit, $defaults['rate_limit'] );
+			$rate_limit['requests'] = max( 10, (int) ( $rate_limit['requests'] ?? $defaults['rate_limit']['requests'] ) );
+			$rate_limit['window']   = max( 60, (int) ( $rate_limit['window'] ?? $defaults['rate_limit']['window'] ) );
+			$settings['rate_limit'] = $rate_limit;
+
+			$allow_list = is_array( $settings['allow_list'] ?? null ) ? $settings['allow_list'] : [];
+			$allow_list = $this->merge_defaults_recursive( $allow_list, $defaults['allow_list'] );
+			$allow_list['user_agents'] = array_values( array_unique( array_map( 'sanitize_text_field', (array) ( $allow_list['user_agents'] ?? [] ) ) ) );
+			$allow_list['ip_addresses'] = array_values( array_unique( array_map( 'sanitize_text_field', (array) ( $allow_list['ip_addresses'] ?? [] ) ) ) );
+			$settings['allow_list'] = $allow_list;
+
+			$block_list = is_array( $settings['block_list'] ?? null ) ? $settings['block_list'] : [];
+			$block_list = $this->merge_defaults_recursive( $block_list, $defaults['block_list'] );
+			$block_list['user_agents'] = array_values( array_unique( array_map( 'sanitize_text_field', (array) ( $block_list['user_agents'] ?? [] ) ) ) );
+			$block_list['ip_addresses'] = array_values( array_unique( array_map( 'sanitize_text_field', (array) ( $block_list['ip_addresses'] ?? [] ) ) ) );
+			$settings['block_list'] = $block_list;
+
+			$robots = is_array( $settings['robots'] ?? null ) ? $settings['robots'] : [];
+			$robots = $this->merge_defaults_recursive( $robots, $defaults['robots'] );
+			$robots['manage']   = ! empty( $robots['manage'] );
+			$robots['ai_rules'] = ! empty( $robots['ai_rules'] );
+			$robots['content']  = (string) ( $robots['content'] ?? '' );
+			$settings['robots'] = $robots;
+
+			$settings['hmac_secret'] = sanitize_text_field( $settings['hmac_secret'] ?? '' );
+
+			$settings['analytics'] = $this->merge_defaults_recursive(
+				is_array( $settings['analytics'] ?? null ) ? $settings['analytics'] : [],
+				$defaults['analytics']
+			);
+
+			$settings['queue'] = $this->merge_defaults_recursive(
+				is_array( $settings['queue'] ?? null ) ? $settings['queue'] : [],
+				$defaults['queue']
+			);
+
+			$settings['headers'] = $this->merge_defaults_recursive(
+				is_array( $settings['headers'] ?? null ) ? $settings['headers'] : [],
+				$defaults['headers']
 			);
 
 			return $settings;
 		}
 
-		$legacy = $settings;
-
-		$normalised = $defaults;
+		$legacy   = $settings;
+		$converted = $defaults;
 
 		$mode = isset( $legacy['allow_deny'] ) && 'deny' === $legacy['allow_deny'] ? 'deny' : 'allow';
 
-		$normalised['policy'] = [
-			'mode'          => $mode,
-			'distribution'  => in_array( $legacy['distribution'] ?? '', [ 'private', 'public' ], true ) ? $legacy['distribution'] : '',
-			'price'         => sanitize_text_field( $legacy['price'] ?? $defaults['policy']['price'] ),
-			'payto'         => sanitize_text_field( $legacy['payto'] ?? '' ),
+		$converted['policy'] = [
+			'mode'         => $mode,
+			'distribution' => in_array( $legacy['distribution'] ?? '', [ 'private', 'public' ], true ) ? $legacy['distribution'] : '',
+			'price'        => sanitize_text_field( $legacy['price'] ?? $defaults['policy']['price'] ),
+			'payto'        => sanitize_text_field( $legacy['payto'] ?? $defaults['policy']['payto'] ),
 		];
 
-		$normalised['robots'] = [
+		$converted['robots'] = [
 			'manage'  => ! empty( $legacy['robots_manage'] ),
-			'ai_rules'=> ! empty( $legacy['robots_ai_rules'] ?? true ),
+			'ai_rules'=> isset( $legacy['robots_ai_rules'] ) ? ! empty( $legacy['robots_ai_rules'] ) : $defaults['robots']['ai_rules'],
 			'content' => (string) ( $legacy['robots_content'] ?? '' ),
 		];
 
-		$normalised['profile'] = $defaults['profile'];
-		$normalised['enforcement']['observation_mode'] = $defaults['enforcement']['observation_mode'];
+		$converted['profile'] = $defaults['profile'];
 
-		return $normalised;
+		$legacy_enforcement = [];
+		if ( isset( $legacy['enforcement'] ) && is_array( $legacy['enforcement'] ) ) {
+			$legacy_enforcement = $legacy['enforcement'];
+		}
+
+		if ( isset( $legacy['enforcement_enabled'] ) ) {
+			$legacy_enforcement['enabled'] = ! empty( $legacy['enforcement_enabled'] );
+		}
+
+		$converted['enforcement'] = $defaults['enforcement'];
+		$converted['enforcement']['enabled'] = ! empty( $legacy_enforcement['enabled'] );
+		$converted['enforcement']['threshold'] = isset( $legacy_enforcement['threshold'] )
+			? max( 0, min( 100, (int) $legacy_enforcement['threshold'] ) )
+			: $defaults['enforcement']['threshold'];
+
+		$legacy_observation = $legacy_enforcement['observation_mode'] ?? $legacy_enforcement['observation'] ?? [];
+		$converted['enforcement']['observation_mode'] = [
+			'enabled'    => ! empty( $legacy_observation['enabled'] ),
+			'duration'   => isset( $legacy_observation['duration'] ) ? max( 0, (int) $legacy_observation['duration'] ) : 0,
+			'expires_at' => isset( $legacy_observation['expires_at'] ) ? (int) $legacy_observation['expires_at'] : 0,
+		];
+
+		$converted['hmac_secret'] = sanitize_text_field( $legacy['hmac_secret'] ?? '' );
+
+		return $converted;
+	}
+
+	/**
+	 * Recursively merge settings with defaults.
+	 *
+	 * @param array $settings Settings array.
+	 * @param array $defaults Default values.
+	 * @return array
+	 */
+	private function merge_defaults_recursive( array $settings, array $defaults ): array {
+		foreach ( $defaults as $key => $default_value ) {
+			if ( ! array_key_exists( $key, $settings ) ) {
+				$settings[ $key ] = $default_value;
+				continue;
+			}
+
+			if ( is_array( $default_value ) && is_array( $settings[ $key ] ) ) {
+				$settings[ $key ] = $this->merge_defaults_recursive( $settings[ $key ], $default_value );
+			}
+		}
+
+		return $settings;
 	}
 
 	/**
@@ -202,7 +306,8 @@ class Options_Repository {
 	 * @param array $status Account data.
 	 */
 	public function update_account_status( array $status ): void {
-		update_option( self::OPTION_ACCOUNT, $status );
+		$merged = $this->merge_defaults_recursive( $status, $this->defaults->account() );
+		update_option( self::OPTION_ACCOUNT, $merged );
 	}
 
 	/**
