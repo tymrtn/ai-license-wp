@@ -1,5 +1,18 @@
 # Copyright.sh – AI License WordPress Plugin
 
+This repository now tracks the v2.x AI License plugin implementation directly from the
+`copyright-sh-ai-license/` directory. Historical artifacts (archived plugin builds,
+experimental plugins, release zips) have been moved into subfolders so the WordPress
+plugin source is the clear repo root for day‑to‑day development. The default branch
+`main` maps to our active L402 enforcement work (formerly developed on the
+`ui-improvements` branch).
+
+## Repository layout
+
+- `copyright-sh-ai-license/` – primary plugin source (v2.x)
+- `liccium-digital-asset-registry/` – legacy prototype plugin retained for reference
+- `releases/` – manual export zips (ignored by git)
+
 A WordPress plugin that enables websites to declare AI usage permissions and monetization terms through machine-readable licenses.
 
 ## Features
@@ -36,6 +49,16 @@ The plugin implements the Copyright.sh License Grammar Specification v1.5:
 
 - WordPress 6.2 or higher
 - PHP 7.4 or higher
+
+## Branching & releases
+
+- `main` – active v2.x development (L402 enforcement + dashboard integration)
+- `v1` tags – historical releases published on WordPress.org
+- `v2-l402` – long-running branch maintained for the 402/L402 roll-out (kept in sync with `main`)
+
+Release zips are generated via `tools/build-plugin.sh` (see documentation inside the
+plugin directory). New tagged releases should update both the WordPress.org SVN repo
+and this git repository.
 
 ## Changelog
 

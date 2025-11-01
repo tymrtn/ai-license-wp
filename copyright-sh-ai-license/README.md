@@ -151,7 +151,7 @@ Now individual creators can access the same opportunity.
 The plugin implements the open Copyright.sh License Grammar v1.5:
 
 ```
-action ; [distribution:level] ; [price:amount] ; [payto:account]
+action; [distribution:level]; [price:amount]; [payto:account]
 ```
 
 - **action**: `allow` or `deny`
