@@ -19,6 +19,7 @@ class Options_Repository {
 	public const OPTION_SETTINGS = 'csh_ai_license_settings';
 	public const OPTION_ACCOUNT  = 'csh_ai_license_account_status';
 	public const META_KEY        = '_csh_ai_license';
+	public const STAGE_KEYS      = [ 'infer', 'embed', 'tune', 'train' ];
 
 	/**
 	 * Default sets.
