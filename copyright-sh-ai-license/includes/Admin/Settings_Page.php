@@ -1782,16 +1782,50 @@ if ( '' === $sanitized['policy']['payto'] ) {
 					.csh-ai-robots-preview summary { cursor: pointer; padding: 12px 16px; font-weight: 600; color: #2b50d9; list-style: none; outline: none; }
 					.csh-ai-robots-preview summary::-webkit-details-marker { display: none; }
 					.csh-ai-robots-preview__content { margin: 0; padding: 16px; background: #f8fafc; max-height: 260px; overflow: auto; font-family: Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
+					.csh-ai-stage-table, .csh-ai-agent-table { width: 100%; }
+					.csh-ai-stage-table th, .csh-ai-stage-table td,
+					.csh-ai-agent-table th, .csh-ai-agent-table td { padding: 10px 8px; }
 					@media (max-width: 1100px) {
 						.csh-ai-settings-form .csh-ai-layout { grid-template-columns: 1fr; gap: 24px; }
 						.csh-ai-sidebar { position: static; }
 					}
+					@media (max-width: 900px) {
+						.csh-ai-sidebar-card { padding: 18px 20px; }
+						.csh-ai-panel { padding: 24px 20px; }
+						.csh-ai-summary-meta strong { min-width: 120px; }
+					}
 					@media (max-width: 782px) {
 						.csh-ai-settings-form .csh-ai-layout { gap: 16px; }
-						.csh-ai-panel { padding: 24px; }
+						.csh-ai-panel { padding: 20px 16px; }
 						.csh-ai-panel .form-table > tbody > tr { grid-template-columns: 1fr; }
 						.csh-ai-panel .form-table th { text-transform: none; letter-spacing: normal; font-size: 14px; }
 						.csh-ai-actions { justify-content: stretch; }
+						.csh-ai-actions .submit { width: 100%; }
+						.csh-ai-actions .submit .button { width: 100%; }
+						.csh-ai-sidebar-card { padding: 16px; }
+						.csh-ai-summary-meta strong { min-width: auto; }
+						.csh-ai-summary-meta li { flex-direction: column; gap: 2px; align-items: flex-start; }
+						.csh-ai-health-card__item { grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
+						.csh-ai-status-badge { width: 24px; height: 24px; font-size: 12px; }
+						.csh-ai-stage-table, .csh-ai-agent-table { font-size: 13px; }
+						.csh-ai-stage-table th, .csh-ai-stage-table td,
+						.csh-ai-agent-table th, .csh-ai-agent-table td { padding: 8px 6px; }
+						.csh-ai-stage-table select, .csh-ai-stage-table input[type="text"],
+						.csh-ai-stage-table input[type="number"] { font-size: 13px; min-height: 32px; }
+					}
+					@media (max-width: 600px) {
+						.csh-ai-panel { padding: 16px 12px; }
+						.csh-ai-panel-header h2 { font-size: 18px; }
+						.csh-ai-sidebar-card { padding: 14px 12px; }
+						.csh-ai-sidebar-card__header h2 { font-size: 16px; }
+						.csh-ai-step { grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
+						.csh-ai-step-index { width: 28px; height: 28px; font-size: 13px; }
+						.csh-ai-summary-card { padding: 14px 12px; }
+						.csh-ai-summary-badges { gap: 6px; }
+						.csh-ai-stage-table, .csh-ai-agent-table { font-size: 12px; }
+						.csh-ai-stage-table th, .csh-ai-stage-table td,
+						.csh-ai-agent-table th, .csh-ai-agent-table td { padding: 6px 4px; }
+						.csh-ai-agent-table { display: block; overflow-x: auto; }
 					}
 				</style>
 			<?php
