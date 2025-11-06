@@ -376,7 +376,7 @@ class Usage_Queue implements Bootable {
 	 *
 	 * @return array
 	 */
-	public function get_stats(): array {
+	public function get_stats( int $days = 7 ): array {
 		global $wpdb;
 		$table = $this->get_table_name();
 
@@ -388,16 +388,133 @@ class Usage_Queue implements Bootable {
 		$last    = $wpdb->get_var( "SELECT MAX(dispatch_ts) FROM {$table} WHERE dispatch_ts IS NOT NULL" );
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name escaped via get_table_name(), custom table stats query.
-		$top_agents = $wpdb->get_results(
-			"SELECT user_agent, COUNT(*) AS total FROM {$table} WHERE user_agent <> '' GROUP BY user_agent ORDER BY total DESC LIMIT 5", // phpcs:ignore
+		$since  = gmdate( 'Y-m-d H:i:s', time() - max( 1, $days ) * DAY_IN_SECONDS );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name escaped, custom table stats query.
+		$recent_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT user_agent, purpose, COUNT(*) AS total, MAX(enqueue_ts) AS last_seen FROM {$table} WHERE user_agent <> '' AND enqueue_ts >= %s GROUP BY user_agent, purpose ORDER BY total DESC",
+				$since
+			),
 			ARRAY_A
 		);
+
+		$recent_agents = [];
+		if ( is_array( $recent_rows ) ) {
+			foreach ( $recent_rows as $row ) {
+				$agent = $row['user_agent'] ?? '';
+				if ( '' === $agent ) {
+					continue;
+				}
+
+				if ( ! isset( $recent_agents[ $agent ] ) ) {
+					$recent_agents[ $agent ] = [
+						'user_agent' => $agent,
+						'total'      => 0,
+						'purposes'   => [],
+						'last_seen'  => $row['last_seen'] ?? null,
+					];
+				}
+
+				$recent_agents[ $agent ]['total'] += (int) ( $row['total'] ?? 0 );
+				$purpose = $row['purpose'] ?? 'unknown';
+				$recent_agents[ $agent ]['purposes'][ $purpose ] = (int) ( $row['total'] ?? 0 );
+				$recent_agents[ $agent ]['last_seen'] = $row['last_seen'] ?? $recent_agents[ $agent ]['last_seen'];
+			}
+		}
+
+		uasort(
+			$recent_agents,
+			static function ( $a, $b ) {
+				return ( $b['total'] ?? 0 ) <=> ( $a['total'] ?? 0 );
+			}
+		);
+
+		$recent_agents = array_slice( $recent_agents, 0, 10, true );
+
+		$purpose_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT purpose, COUNT(*) AS total FROM {$table} WHERE enqueue_ts >= %s GROUP BY purpose",
+				$since
+			),
+			ARRAY_A
+		);
+
+		$purpose_counts = [];
+		if ( is_array( $purpose_rows ) ) {
+			foreach ( $purpose_rows as $purpose_row ) {
+				$purpose_key = $purpose_row['purpose'] ?? 'unknown';
+				$purpose_counts[ $purpose_key ] = (int) ( $purpose_row['total'] ?? 0 );
+			}
+		}
+
+		$failure_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT error_message FROM {$table} WHERE status = 'failed' AND enqueue_ts >= %s",
+				$since
+			),
+			ARRAY_A
+		);
+
+		$failure_buckets = [
+			'network' => 0,
+			'auth'    => 0,
+			'hmac'    => 0,
+			'rules'   => 0,
+			'other'   => 0,
+		];
+
+		if ( is_array( $failure_rows ) ) {
+			foreach ( $failure_rows as $row ) {
+				$message = isset( $row['error_message'] ) ? (string) $row['error_message'] : '';
+				$bucket  = $this->bucketise_failure( $message );
+				if ( ! isset( $failure_buckets[ $bucket ] ) ) {
+					$failure_buckets[ $bucket ] = 0;
+				}
+				$failure_buckets[ $bucket ]++;
+			}
+		}
 
 		return [
 			'pending'       => $pending,
 			'failed'        => $failed,
 			'last_dispatch' => $last ?: null,
-			'top_agents'    => is_array( $top_agents ) ? $top_agents : [],
+			'recent_agents' => $recent_agents,
+			'failure_types' => $failure_buckets,
+			'purpose_counts'=> $purpose_counts,
+			'total_requests'=> array_sum( $purpose_counts ),
 		];
+	}
+
+	/**
+	 * Derive a failure bucket from error message.
+	 *
+	 * @param string $message Error message.
+	 * @return string
+	 */
+	private function bucketise_failure( string $message ): string {
+		$normalized = strtolower( $message );
+
+		if ( '' === $normalized ) {
+			return 'other';
+		}
+
+		if ( str_contains( $normalized, 'timeout' ) || str_contains( $normalized, 'timed out' ) || str_contains( $normalized, 'cURL error 28' ) || str_contains( $normalized, 'could not resolve' ) || str_contains( $normalized, 'ssl' ) ) {
+			return 'network';
+		}
+
+		if ( str_contains( $normalized, '401' ) || str_contains( $normalized, '403' ) || str_contains( $normalized, 'unauthorised' ) || str_contains( $normalized, 'unauthorized' ) ) {
+			return 'auth';
+		}
+
+		if ( str_contains( $normalized, 'hmac' ) || str_contains( $normalized, 'signature' ) ) {
+			return 'hmac';
+		}
+
+		if ( str_contains( $normalized, 'rule' ) || str_contains( $normalized, 'pattern' ) ) {
+			return 'rules';
+		}
+
+		return 'other';
 	}
 }

@@ -24,6 +24,7 @@ class Settings_Page implements Bootable {
 	private const PAGE_SLUG        = 'csh-ai-license';
 	private const PAGE_TERMS       = 'csh-ai-license-terms';
 	private const PAGE_ENFORCEMENT = 'csh-ai-license-enforcement';
+	private const PAGE_HEALTH      = 'csh-ai-license-health';
 	private const ACTION_SAVE      = 'csh_ai_license_save_settings';
 	private const NONCE_FIELD      = '_csh_ai_license_nonce';
 
@@ -54,6 +55,13 @@ class Settings_Page implements Bootable {
 	 * @var Usage_Queue|null
 	 */
 	private $usage_queue;
+
+	/**
+	 * Stored admin page hooks for enqueue/load callbacks.
+	 *
+	 * @var array<string,string>
+	 */
+	private $page_hooks = [];
 
 	/**
 	 * Constructor.
@@ -308,6 +316,7 @@ class Settings_Page implements Bootable {
 		add_action( 'admin_post_csh_ai_adjust_agent', [ $this, 'handle_agent_adjustment' ] );
 		add_filter( 'wp_redirect', [ $this, 'fix_settings_redirect' ], 10, 2 );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+		add_filter( 'admin_title', [ $this, 'normalize_admin_title' ], 10, 2 );
 	}
 
 	/**
@@ -336,6 +345,30 @@ class Settings_Page implements Bootable {
 			],
 			admin_url( 'options-general.php' )
 		);
+	}
+
+	/**
+	 * Normalise admin title to avoid null values reaching core strip_tags().
+	 *
+	 * @param mixed $admin_title Filtered admin title.
+	 * @param mixed $title       Base screen title.
+	 * @return string
+	 */
+	public function normalize_admin_title( $admin_title, $title ): string {
+		if ( null === $admin_title ) {
+			$current_screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+			if ( $current_screen && in_array( $current_screen->id, $this->page_hooks, true ) ) {
+				$admin_title = is_string( $title ) ? $title : '';
+			} else {
+				$admin_title = '';
+			}
+		}
+
+		if ( ! is_string( $admin_title ) ) {
+			$admin_title = (string) ( $admin_title ?? '' );
+		}
+
+		return $admin_title;
 	}
 
 	/**
@@ -521,18 +554,17 @@ class Settings_Page implements Bootable {
 		);
 
 		add_settings_section(
-			'csh_ai_license_health',
-			__( 'System Health', 'copyright-sh-ai-license' ),
-			[ $this, 'section_health_intro' ],
-			self::PAGE_ENFORCEMENT
+			'csh_ai_license_health_overview',
+			__( 'System Overview', 'copyright-sh-ai-license' ),
+			[ $this, 'section_health_overview' ],
+			self::PAGE_HEALTH
 		);
-
 		add_settings_field(
-			'health_status',
-			__( 'Status Overview', 'copyright-sh-ai-license' ),
+			'health_cards',
+			'',
 			[ $this, 'field_health_status' ],
-			self::PAGE_ENFORCEMENT,
-			'csh_ai_license_health'
+			self::PAGE_HEALTH,
+			'csh_ai_license_health_overview'
 		);
 	}
 
@@ -540,13 +572,46 @@ class Settings_Page implements Bootable {
 	 * Register WordPress admin menu item.
 	 */
 	public function register_menu(): void {
-		add_options_page(
+		$this->page_hooks['overview'] = add_options_page(
 			__( 'AI License', 'copyright-sh-ai-license' ),
 			__( 'AI License', 'copyright-sh-ai-license' ),
 			'manage_options',
 			self::PAGE_SLUG,
-			[ $this, 'render_page' ]
+			[ $this, 'render_overview_page' ]
 		);
+
+		$this->page_hooks['terms'] = add_submenu_page(
+			'options-general.php',
+			__( 'Licensing Terms', 'copyright-sh-ai-license' ),
+			__( 'Licensing Terms', 'copyright-sh-ai-license' ),
+			'manage_options',
+			self::PAGE_TERMS,
+			[ $this, 'render_terms_page' ]
+		);
+
+		$this->page_hooks['controls'] = add_submenu_page(
+			'options-general.php',
+			__( 'Crawler Controls', 'copyright-sh-ai-license' ),
+			__( 'Crawler Controls', 'copyright-sh-ai-license' ),
+			'manage_options',
+			self::PAGE_ENFORCEMENT,
+			[ $this, 'render_enforcement_page' ]
+		);
+
+		$this->page_hooks['health'] = add_submenu_page(
+			'options-general.php',
+			__( 'Health & Logs', 'copyright-sh-ai-license' ),
+			__( 'Health & Logs', 'copyright-sh-ai-license' ),
+			'manage_options',
+			self::PAGE_HEALTH,
+			[ $this, 'render_health_page' ]
+		);
+
+		foreach ( $this->page_hooks as $hook ) {
+			add_action( 'load-' . $hook, [ $this, 'prepare_screen_layout' ] );
+		}
+
+		add_action( 'admin_menu', [ $this, 'hide_submenus' ], 99 );
 	}
 
 	/**
@@ -555,9 +620,19 @@ class Settings_Page implements Bootable {
 	 * @param string $hook Current admin page hook.
 	 */
 	public function enqueue_assets( string $hook ): void {
-		if ( ! in_array( $hook, [ 'settings_page_csh-ai-license', 'settings_page_csh-ai-license-network' ], true ) ) {
+		$allowed_hooks = [
+			'settings_page_csh-ai-license',
+			'settings_page_csh-ai-license-terms',
+			'settings_page_csh-ai-license-enforcement',
+			'settings_page_csh-ai-license-health',
+			'settings_page_csh-ai-license-network',
+		];
+
+		if ( ! in_array( $hook, $allowed_hooks, true ) ) {
 			return;
 		}
+
+		wp_enqueue_script( 'postbox' );
 
 		wp_enqueue_style(
 			'csh-ai-settings',
@@ -585,68 +660,222 @@ class Settings_Page implements Bootable {
 	}
 
 	/**
+	 * Prepare shared screen layout options for the settings sub-pages.
+	 */
+	public function prepare_screen_layout(): void {
+		add_screen_option(
+			'layout_columns',
+			[
+				'default' => 2,
+				'max'     => 4,
+			]
+		);
+	}
+
+	/**
+	 * Hide secondary pages from the Settings menu while allowing direct access.
+	 */
+	public function hide_submenus(): void {
+		remove_submenu_page( 'options-general.php', self::PAGE_TERMS );
+		remove_submenu_page( 'options-general.php', self::PAGE_ENFORCEMENT );
+		remove_submenu_page( 'options-general.php', self::PAGE_HEALTH );
+	}
+
+	/**
 	 * Render settings page wrapper.
 	 */
-	public function render_page(): void {
+	public function render_overview_page(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 
 		?>
 		<div class="wrap csh-ai-license-settings">
-			<h1><?php esc_html_e( 'AI Access Control', 'copyright-sh-ai-license' ); ?></h1>
-			<p class="csh-ai-page-lede"><?php esc_html_e( 'Guide AI crawlers with explicit licence terms, tuned enforcement profiles, and clear health insights.', 'copyright-sh-ai-license' ); ?></p>
-			<?php
-			$settings_updated = isset( $_GET['settings-updated'] )
-				? sanitize_text_field( wp_unslash( $_GET['settings-updated'] ) )
-				: '';
-			if ( in_array( $settings_updated, [ 'true', '1' ], true ) ) :
-				?>
-				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Settings saved.', 'copyright-sh-ai-license' ); ?></p></div>
-			<?php endif; ?>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="csh-ai-settings-form">
-				<?php
-				wp_nonce_field( self::ACTION_SAVE, self::NONCE_FIELD );
-				?>
-				<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION_SAVE ); ?>" />
-				<div class="csh-ai-layout">
-					<div class="csh-ai-main">
-						<section class="csh-ai-panel" id="csh-ai-terms-panel" aria-labelledby="csh-ai-terms-heading">
-							<header class="csh-ai-panel-header">
-								<h2 id="csh-ai-terms-heading"><?php esc_html_e( 'Licensing Terms', 'copyright-sh-ai-license' ); ?></h2>
-								<p><?php esc_html_e( 'Define the permitted use, pricing, and attribution details that power your meta tags and ai-license.txt.', 'copyright-sh-ai-license' ); ?></p>
-							</header>
-							<?php do_settings_sections( self::PAGE_TERMS ); ?>
-						</section>
-
-						<section class="csh-ai-panel" id="csh-ai-enforcement-panel" aria-labelledby="csh-ai-enforcement-heading">
-							<header class="csh-ai-panel-header">
-								<h2 id="csh-ai-enforcement-heading"><?php esc_html_e( 'Crawler Enforcement', 'copyright-sh-ai-license' ); ?></h2>
-								<p><?php esc_html_e( 'Select a protection profile, tune observation mode, manage allow/block lists, and monitor crawler health.', 'copyright-sh-ai-license' ); ?></p>
-							</header>
-							<?php do_settings_sections( self::PAGE_ENFORCEMENT ); ?>
-						</section>
-
-						<div class="csh-ai-actions">
-							<?php submit_button( __( 'Save Changes', 'copyright-sh-ai-license' ) ); ?>
+			<h1><?php esc_html_e( 'AI License Dashboard', 'copyright-sh-ai-license' ); ?></h1>
+			<?php $this->render_nav_tabs( self::PAGE_SLUG ); ?>
+			<?php settings_errors( 'csh_ai_license_group' ); ?>
+			<div class="csh-ai-layout">
+				<div class="csh-ai-layout__main">
+					<div class="postbox csh-ai-card">
+						<div class="postbox-header">
+							<h2><?php esc_html_e( 'Usage insights', 'copyright-sh-ai-license' ); ?></h2>
+						</div>
+						<div class="inside">
+							<?php $this->render_usage_overview_card(); ?>
 						</div>
 					</div>
-					<aside class="csh-ai-sidebar" aria-label="<?php esc_attr_e( 'AI Licence setup guidance', 'copyright-sh-ai-license' ); ?>">
-						<?php
-						$this->render_health_sidebar_card();
-						$this->render_onboarding_card();
-						/**
-						 * Allow additional sidebar cards within the AI License settings screen.
-						 *
-						 * @param Options_Repository $options Options repository instance.
-						 */
-						do_action( 'csh_ai_license_sidebar', $this->options );
-						?>
-					</aside>
+					<div class="postbox csh-ai-card">
+						<div class="postbox-header">
+							<h2><?php esc_html_e( 'Crawler activity & queue diagnostics', 'copyright-sh-ai-license' ); ?></h2>
+						</div>
+						<div class="inside">
+							<?php $this->field_health_status(); ?>
+						</div>
+					</div>
+					<div class="postbox csh-ai-card csh-ai-card--wide">
+						<div class="postbox-header">
+							<h2><?php esc_html_e( 'Onboarding Checklist', 'copyright-sh-ai-license' ); ?></h2>
+						</div>
+						<div class="inside">
+							<?php $this->render_onboarding_card(); ?>
+						</div>
+					</div>
 				</div>
-			</form>
+				<?php $this->render_sidebar_panels(); ?>
+			</div>
 		</div>
 		<?php
+	}
+
+	public function render_terms_page(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		?>
+		<div class="wrap csh-ai-license-settings">
+			<h1><?php esc_html_e( 'Licensing Terms & Pricing', 'copyright-sh-ai-license' ); ?></h1>
+			<?php $this->render_nav_tabs( self::PAGE_TERMS ); ?>
+			<?php settings_errors( 'csh_ai_license_group' ); ?>
+			<div class="csh-ai-layout">
+				<form method="post" action="options.php" class="csh-ai-settings-form csh-ai-layout__main">
+					<?php settings_fields( 'csh_ai_license_group' ); ?>
+					<div class="csh-ai-grid csh-ai-grid--form">
+						<div class="postbox csh-ai-card csh-ai-card--primary">
+							<div class="postbox-header">
+								<h2><?php esc_html_e( 'Configure licensing terms', 'copyright-sh-ai-license' ); ?></h2>
+							</div>
+							<div class="inside">
+								<?php do_settings_sections( self::PAGE_TERMS ); ?>
+							</div>
+						</div>
+					</div>
+					<?php submit_button(); ?>
+				</form>
+				<?php $this->render_sidebar_panels(); ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	public function render_enforcement_page(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		?>
+		<div class="wrap csh-ai-license-settings">
+			<h1><?php esc_html_e( 'Crawler Controls', 'copyright-sh-ai-license' ); ?></h1>
+			<?php $this->render_nav_tabs( self::PAGE_ENFORCEMENT ); ?>
+			<?php settings_errors( 'csh_ai_license_group' ); ?>
+			<div class="csh-ai-layout">
+				<form method="post" action="options.php" class="csh-ai-settings-form csh-ai-layout__main">
+					<?php settings_fields( 'csh_ai_license_group' ); ?>
+					<div class="csh-ai-grid csh-ai-grid--form">
+						<div class="postbox csh-ai-card csh-ai-card--primary">
+							<div class="postbox-header">
+								<h2><?php esc_html_e( 'Enforcement profile & rate limits', 'copyright-sh-ai-license' ); ?></h2>
+							</div>
+							<div class="inside">
+								<?php do_settings_sections( self::PAGE_ENFORCEMENT ); ?>
+							</div>
+						</div>
+					</div>
+					<?php submit_button(); ?>
+				</form>
+				<?php $this->render_sidebar_panels(); ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	private function render_nav_tabs( string $active ): void {
+		$tabs = [
+			self::PAGE_SLUG        => __( 'Overview', 'copyright-sh-ai-license' ),
+			self::PAGE_TERMS       => __( 'Licensing Terms', 'copyright-sh-ai-license' ),
+			self::PAGE_ENFORCEMENT => __( 'Crawler Controls', 'copyright-sh-ai-license' ),
+			self::PAGE_HEALTH      => __( 'Health & Logs', 'copyright-sh-ai-license' ),
+		];
+
+		echo '<h2 class="nav-tab-wrapper">';
+		foreach ( $tabs as $slug => $label ) {
+			$url     = admin_url( 'options-general.php?page=' . $slug );
+			$classes = 'nav-tab' . ( $slug === $active ? ' nav-tab-active' : '' );
+			printf(
+				'<a href="%1$s" class="%2$s">%3$s</a>',
+				esc_url( $url ),
+				esc_attr( $classes ),
+				esc_html( $label )
+			);
+		}
+		echo '</h2>';
+	}
+
+	private function render_license_snapshot(): void {
+		$settings = $this->options->get_settings();
+		$policy   = $settings['policy'] ?? [];
+		$summary  = $this->build_policy_strings( $policy );
+		$mode     = $policy['mode'] ?? 'allow';
+		$mode_text = ( 'deny' === $mode )
+			? __( 'Default mode: deny AI usage unless overridden.', 'copyright-sh-ai-license' )
+			: __( 'Default mode: allow compliant AI clients.', 'copyright-sh-ai-license' );
+
+		echo '<div class="csh-ai-license-summary">';
+		echo '<div class="csh-ai-license-summary__primary">';
+		echo '<strong>' . esc_html__( 'Effective licence string', 'copyright-sh-ai-license' ) . '</strong>';
+		echo '<div class="csh-ai-license-summary__pill">';
+		echo '<code data-license-summary="base">' . esc_html( $summary['base'] ) . '</code>';
+		echo '<button type="button" class="button button-secondary button-small" data-copy-license="base">' . esc_html__( 'Copy', 'copyright-sh-ai-license' ) . '</button>';
+		echo '</div>';
+		echo '</div>';
+
+		if ( ! empty( $summary['stages'] ) ) {
+			echo '<ul class="csh-ai-license-summary__stages">';
+			foreach ( $summary['stages'] as $stage_key => $stage_value ) {
+				echo '<li>';
+				echo '<strong>' . esc_html( $this->get_stage_label( $stage_key ) ) . ':</strong> ';
+				echo '<code data-license-summary="stage-' . esc_attr( $stage_key ) . '">' . esc_html( $stage_value ) . '</code>';
+				echo '<button type="button" class="button-link" data-copy-license="stage-' . esc_attr( $stage_key ) . '">' . esc_html__( 'Copy', 'copyright-sh-ai-license' ) . '</button>';
+				echo '</li>';
+			}
+			echo '</ul>';
+		}
+		echo '</div>';
+
+		$meta = [];
+		$distribution = $policy['distribution'] ?? '';
+		if ( 'public' === $distribution ) {
+			$meta[] = __( 'Policy visibility: public catalogue', 'copyright-sh-ai-license' );
+		} elseif ( 'private' === $distribution ) {
+			$meta[] = __( 'Policy visibility: private catalogue', 'copyright-sh-ai-license' );
+		}
+
+		$price = trim( (string) ( $policy['price'] ?? '' ) );
+		if ( '' !== $price ) {
+			$meta[] = sprintf(
+				/* translators: %s: Licence price */
+				__( 'Price hint: %s', 'copyright-sh-ai-license' ),
+				esc_html( $price )
+			);
+		}
+
+		$payto = trim( (string) ( $policy['payto'] ?? '' ) );
+		if ( '' !== $payto ) {
+			$meta[] = sprintf(
+				/* translators: %s: Payment recipient */
+				__( 'Pay to: %s', 'copyright-sh-ai-license' ),
+				esc_html( $payto )
+			);
+		}
+
+		echo '<p>' . esc_html( $mode_text ) . '</p>';
+		if ( ! empty( $meta ) ) {
+			echo '<ul class="csh-ai-list csh-ai-list--compact">';
+			foreach ( $meta as $item ) {
+				echo '<li>' . esc_html( $item ) . '</li>';
+			}
+			echo '</ul>';
+		}
 	}
 
 	/**
@@ -784,53 +1013,55 @@ class Settings_Page implements Bootable {
 		<details class="csh-ai-stage-overrides" <?php echo $advanced_open ? 'open' : ''; ?>>
 			<summary><?php esc_html_e( 'Usage-specific overrides (train, embed, tune, infer)', 'copyright-sh-ai-license' ); ?></summary>
 			<p class="description"><?php esc_html_e( 'Add new terms for individual AI usage stages. Leave any field blank to inherit the general licence.', 'copyright-sh-ai-license' ); ?></p>
-			<table class="widefat striped csh-ai-stage-table">
-				<caption class="screen-reader-text"><?php esc_html_e( 'AI licence overrides by usage stage', 'copyright-sh-ai-license' ); ?></caption>
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Usage term', 'copyright-sh-ai-license' ); ?></th>
-						<th><?php esc_html_e( 'Action', 'copyright-sh-ai-license' ); ?></th>
-						<th><?php esc_html_e( 'Distribution', 'copyright-sh-ai-license' ); ?></th>
-						<th><?php esc_html_e( 'Price (USD)', 'copyright-sh-ai-license' ); ?></th>
-						<th><?php esc_html_e( 'Pay To', 'copyright-sh-ai-license' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach ( Options_Repository::STAGE_KEYS as $stage_key ) :
-						$stage_policy = $stages[ $stage_key ] ?? [];
-						$stage_mode   = $stage_policy['mode'] ?? '';
-						$stage_dist   = $stage_policy['distribution'] ?? '';
-						$stage_price  = $stage_policy['price'] ?? '';
-						$stage_payto  = $stage_policy['payto'] ?? '';
-						?>
+			<div class="csh-ai-stage-table-wrapper">
+				<table class="widefat striped csh-ai-stage-table">
+					<caption class="screen-reader-text"><?php esc_html_e( 'AI licence overrides by usage stage', 'copyright-sh-ai-license' ); ?></caption>
+					<thead>
 						<tr>
-							<td>
-								<strong><?php echo esc_html( $this->get_stage_label( $stage_key ) ); ?></strong>
-							</td>
-							<td>
-								<select name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[policy][stages][<?php echo esc_attr( $stage_key ); ?>][mode]">
-									<option value=""><?php esc_html_e( 'Inherit', 'copyright-sh-ai-license' ); ?></option>
-									<option value="allow" <?php selected( $stage_mode, 'allow' ); ?>><?php esc_html_e( 'Allow', 'copyright-sh-ai-license' ); ?></option>
-									<option value="deny" <?php selected( $stage_mode, 'deny' ); ?>><?php esc_html_e( 'Deny', 'copyright-sh-ai-license' ); ?></option>
-								</select>
-							</td>
-							<td>
-								<select name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[policy][stages][<?php echo esc_attr( $stage_key ); ?>][distribution]">
-									<option value=""><?php esc_html_e( 'Inherit', 'copyright-sh-ai-license' ); ?></option>
-									<option value="private" <?php selected( $stage_dist, 'private' ); ?>><?php esc_html_e( 'Private', 'copyright-sh-ai-license' ); ?></option>
-									<option value="public" <?php selected( $stage_dist, 'public' ); ?>><?php esc_html_e( 'Public', 'copyright-sh-ai-license' ); ?></option>
-								</select>
-							</td>
-							<td>
-								<input type="text" class="small-text" name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[policy][stages][<?php echo esc_attr( $stage_key ); ?>][price]" value="<?php echo esc_attr( $stage_price ); ?>" placeholder="—" />
-							</td>
-							<td>
-								<input type="text" class="regular-text" name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[policy][stages][<?php echo esc_attr( $stage_key ); ?>][payto]" value="<?php echo esc_attr( $stage_payto ); ?>" placeholder="—" />
-							</td>
+							<th><?php esc_html_e( 'Usage term', 'copyright-sh-ai-license' ); ?></th>
+							<th><?php esc_html_e( 'Action', 'copyright-sh-ai-license' ); ?></th>
+							<th><?php esc_html_e( 'Distribution', 'copyright-sh-ai-license' ); ?></th>
+							<th><?php esc_html_e( 'Price (USD)', 'copyright-sh-ai-license' ); ?></th>
+							<th><?php esc_html_e( 'Pay To', 'copyright-sh-ai-license' ); ?></th>
 						</tr>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						<?php foreach ( Options_Repository::STAGE_KEYS as $stage_key ) :
+							$stage_policy = $stages[ $stage_key ] ?? [];
+							$stage_mode   = $stage_policy['mode'] ?? '';
+							$stage_dist   = $stage_policy['distribution'] ?? '';
+							$stage_price  = $stage_policy['price'] ?? '';
+							$stage_payto  = $stage_policy['payto'] ?? '';
+							?>
+							<tr>
+								<td>
+									<strong><?php echo esc_html( $this->get_stage_label( $stage_key ) ); ?></strong>
+								</td>
+								<td>
+									<select name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[policy][stages][<?php echo esc_attr( $stage_key ); ?>][mode]">
+										<option value=""><?php esc_html_e( 'Inherit', 'copyright-sh-ai-license' ); ?></option>
+										<option value="allow" <?php selected( $stage_mode, 'allow' ); ?>><?php esc_html_e( 'Allow', 'copyright-sh-ai-license' ); ?></option>
+										<option value="deny" <?php selected( $stage_mode, 'deny' ); ?>><?php esc_html_e( 'Deny', 'copyright-sh-ai-license' ); ?></option>
+									</select>
+								</td>
+								<td>
+									<select name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[policy][stages][<?php echo esc_attr( $stage_key ); ?>][distribution]">
+										<option value=""><?php esc_html_e( 'Inherit', 'copyright-sh-ai-license' ); ?></option>
+										<option value="private" <?php selected( $stage_dist, 'private' ); ?>><?php esc_html_e( 'Private', 'copyright-sh-ai-license' ); ?></option>
+										<option value="public" <?php selected( $stage_dist, 'public' ); ?>><?php esc_html_e( 'Public', 'copyright-sh-ai-license' ); ?></option>
+									</select>
+								</td>
+								<td>
+									<input type="text" class="small-text" name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[policy][stages][<?php echo esc_attr( $stage_key ); ?>][price]" value="<?php echo esc_attr( $stage_price ); ?>" placeholder="—" />
+								</td>
+								<td>
+									<input type="text" class="regular-text" name="<?php echo esc_attr( Options_Repository::OPTION_SETTINGS ); ?>[policy][stages][<?php echo esc_attr( $stage_key ); ?>][payto]" value="<?php echo esc_attr( $stage_payto ); ?>" placeholder="—" />
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			</div>
 		</details>
 		<?php
 	}
@@ -1403,166 +1634,205 @@ class Settings_Page implements Bootable {
 	 * @return array
 	 */
 	public function sanitize_settings( $input ): array {
-		$defaults = $this->defaults->global();
-		$input    = is_array( $input ) ? $input : [];
+		$defaults  = $this->defaults->global();
+		$input     = is_array( $input ) ? $input : [];
 		$current  = $this->options->get_settings();
 		$sanitized = $current;
 
-	$policy = $input['policy'] ?? [];
-	$sanitized['policy']['mode'] = in_array( $policy['mode'] ?? '', [ 'allow', 'deny' ], true ) ? $policy['mode'] : ( $current['policy']['mode'] ?? $defaults['policy']['mode'] );
-	$sanitized['policy']['distribution'] = in_array( $policy['distribution'] ?? '', [ '', 'private', 'public' ], true ) ? $policy['distribution'] : ( $current['policy']['distribution'] ?? '' );
-	$sanitized['policy']['price'] = sanitize_text_field( $policy['price'] ?? ( $current['policy']['price'] ?? $defaults['policy']['price'] ) );
-$sanitized['policy']['payto'] = sanitize_text_field( $policy['payto'] ?? ( $current['policy']['payto'] ?? '' ) );
-if ( '' === $sanitized['policy']['payto'] ) {
-	$account = $this->options->get_account_status();
-	if ( ! empty( $account['creator_id'] ) ) {
-		$sanitized['policy']['payto'] = sanitize_text_field( $account['creator_id'] );
-	} elseif ( ! empty( $account['email'] ) ) {
-		$sanitized['policy']['payto'] = sanitize_text_field( $account['email'] );
-	}
-}
+		if ( isset( $input['policy'] ) && is_array( $input['policy'] ) ) {
+			$policy_input = $input['policy'];
+			$policy       = $sanitized['policy'] ?? $defaults['policy'];
 
-	$stage_defaults = $defaults['policy']['stages'] ?? [];
-	$current_stages = $current['policy']['stages'] ?? [];
-	$stage_input    = is_array( $policy['stages'] ?? null ) ? $policy['stages'] : [];
-	$sanitized['policy']['stages'] = [];
-	foreach ( Options_Repository::STAGE_KEYS as $stage_key ) {
-		$incoming       = is_array( $stage_input[ $stage_key ] ?? null ) ? $stage_input[ $stage_key ] : [];
-		$current_stage = is_array( $current_stages[ $stage_key ] ?? null ) ? $current_stages[ $stage_key ] : [];
-		$defaults_stage = $stage_defaults[ $stage_key ] ?? [];
+			if ( array_key_exists( 'mode', $policy_input ) ) {
+				$mode         = $policy_input['mode'];
+				$policy['mode'] = in_array( $mode, [ 'allow', 'deny' ], true ) ? $mode : ( $current['policy']['mode'] ?? $defaults['policy']['mode'] );
+			}
 
-		$mode_value = $incoming['mode'] ?? ( $current_stage['mode'] ?? $defaults_stage['mode'] ?? '' );
-		$distribution_value = $incoming['distribution'] ?? ( $current_stage['distribution'] ?? $defaults_stage['distribution'] ?? '' );
-		$price_value = isset( $incoming['price'] ) ? $incoming['price'] : ( $current_stage['price'] ?? '' );
-		$payto_value = isset( $incoming['payto'] ) ? $incoming['payto'] : ( $current_stage['payto'] ?? '' );
+			if ( array_key_exists( 'distribution', $policy_input ) ) {
+				$distribution          = $policy_input['distribution'];
+				$policy['distribution'] = in_array( $distribution, [ '', 'private', 'public' ], true ) ? $distribution : ( $current['policy']['distribution'] ?? $defaults['policy']['distribution'] );
+			}
 
-		$sanitized['policy']['stages'][ $stage_key ] = [
-			'mode'           => in_array( $mode_value, [ '', 'allow', 'deny' ], true ) ? $mode_value : '',
-			'distribution'   => in_array( $distribution_value, [ '', 'private', 'public' ], true ) ? $distribution_value : '',
-			'price'          => '' !== trim( (string) $price_value ) ? sanitize_text_field( (string) $price_value ) : '',
-			'payto'          => '' !== trim( (string) $payto_value ) ? sanitize_text_field( (string) $payto_value ) : '',
-		];
-	}
+			if ( array_key_exists( 'price', $policy_input ) ) {
+				$policy['price'] = sanitize_text_field( (string) $policy_input['price'] );
+			}
 
-	// Sanitize HMAC secret (64-character hex string)
-	if ( isset( $input['hmac_secret'] ) && '' !== trim( $input['hmac_secret'] ) ) {
-		$sanitized['hmac_secret'] = sanitize_text_field( $input['hmac_secret'] );
-	} elseif ( isset( $current['hmac_secret'] ) ) {
-		$sanitized['hmac_secret'] = $current['hmac_secret'];
-	}
+			if ( array_key_exists( 'payto', $policy_input ) ) {
+				$policy['payto'] = sanitize_text_field( (string) $policy_input['payto'] );
+			}
 
-	if ( isset( $input['profile']['selected'] ) ) {
-		$selected_slug = sanitize_text_field( $input['profile']['selected'] );
-		$sanitized['profile']['selected'] = $selected_slug;
+			if ( isset( $policy_input['stages'] ) && is_array( $policy_input['stages'] ) ) {
+				$stage_defaults = $defaults['policy']['stages'] ?? [];
+				foreach ( Options_Repository::STAGE_KEYS as $stage_key ) {
+					$incoming_stage = is_array( $policy_input['stages'][ $stage_key ] ?? null ) ? $policy_input['stages'][ $stage_key ] : [];
+					$stage          = $policy['stages'][ $stage_key ] ?? ( $current['policy']['stages'][ $stage_key ] ?? ( $stage_defaults[ $stage_key ] ?? [] ) );
 
-		$current_slug = $current['profile']['selected'] ?? '';
-		if ( $selected_slug !== $current_slug ) {
-			$sanitized['profile']['applied'] = false;
-			$sanitized['profile']['custom']  = false;
+					if ( array_key_exists( 'mode', $incoming_stage ) ) {
+						$mode_value    = $incoming_stage['mode'];
+						$stage['mode'] = in_array( $mode_value, [ '', 'allow', 'deny' ], true ) ? $mode_value : '';
+					}
+
+					if ( array_key_exists( 'distribution', $incoming_stage ) ) {
+						$dist_value            = $incoming_stage['distribution'];
+						$stage['distribution'] = in_array( $dist_value, [ '', 'private', 'public' ], true ) ? $dist_value : '';
+					}
+
+					if ( array_key_exists( 'price', $incoming_stage ) ) {
+						$stage['price'] = sanitize_text_field( (string) $incoming_stage['price'] );
+					}
+
+					if ( array_key_exists( 'payto', $incoming_stage ) ) {
+						$stage['payto'] = sanitize_text_field( (string) $incoming_stage['payto'] );
+					}
+
+					$policy['stages'][ $stage_key ] = $stage;
+				}
+			}
+
+			if ( '' === trim( (string) $policy['payto'] ) && '' !== trim( (string) $policy['price'] ) ) {
+				$account = $this->options->get_account_status();
+				if ( ! empty( $account['creator_id'] ) ) {
+					$policy['payto'] = sanitize_text_field( $account['creator_id'] );
+				} elseif ( ! empty( $account['email'] ) ) {
+					$policy['payto'] = sanitize_text_field( $account['email'] );
+				}
+			}
+
+			$sanitized['policy'] = $policy;
 		}
-	}
 
-	$enforcement_input                     = $input['enforcement'] ?? [];
-	$sanitized['enforcement']['enabled']   = ! empty( $enforcement_input['enabled'] );
-	$threshold                             = isset( $enforcement_input['threshold'] ) ? (int) $enforcement_input['threshold'] : ( $current['enforcement']['threshold'] ?? $defaults['enforcement']['threshold'] );
-	$sanitized['enforcement']['threshold'] = max( 0, min( 100, $threshold ) );
+		if ( array_key_exists( 'hmac_secret', $input ) ) {
+			$sanitized['hmac_secret'] = sanitize_text_field( (string) $input['hmac_secret'] );
+		}
 
-	$observation_input   = $enforcement_input['observation'] ?? [];
-	$observation_enabled = ! empty( $observation_input['enabled'] );
-	$duration            = isset( $observation_input['duration'] ) ? (int) $observation_input['duration'] : ( $current['enforcement']['observation_mode']['duration'] ?? $defaults['enforcement']['observation_mode']['duration'] );
-	$duration            = max( 0, min( 30, $duration ) );
-	$now                 = current_time( 'timestamp' );
-	$previous_window     = $current['enforcement']['observation_mode'] ?? $defaults['enforcement']['observation_mode'];
+		if ( isset( $input['profile'] ) && is_array( $input['profile'] ) ) {
+			$profile_input = $input['profile'];
+			if ( array_key_exists( 'selected', $profile_input ) ) {
+				$selected_slug = sanitize_text_field( $profile_input['selected'] );
+				$previous_slug = $current['profile']['selected'] ?? 'default';
+				$sanitized['profile']['selected'] = $selected_slug;
+				if ( $selected_slug !== $previous_slug ) {
+					$sanitized['profile']['applied'] = false;
+					$sanitized['profile']['custom']  = false;
+				}
+			}
+		}
 
-	if ( $observation_enabled ) {
-		if ( ! empty( $previous_window['enabled'] ) && (int) $previous_window['expires_at'] > $now ) {
-			$expires_at = (int) $previous_window['expires_at'];
-		} elseif ( $duration > 0 ) {
-			$expires_at = $now + ( $duration * DAY_IN_SECONDS );
+		if ( isset( $input['enforcement'] ) && is_array( $input['enforcement'] ) ) {
+			$enforcement_input = $input['enforcement'];
+			$enforcement       = $sanitized['enforcement'] ?? $defaults['enforcement'];
+
+			$enforcement['enabled'] = ! empty( $enforcement_input['enabled'] );
+
+			if ( array_key_exists( 'threshold', $enforcement_input ) ) {
+				$threshold               = (int) $enforcement_input['threshold'];
+				$enforcement['threshold'] = max( 0, min( 100, $threshold ) );
+			}
+
+			if ( isset( $enforcement_input['observation'] ) && is_array( $enforcement_input['observation'] ) ) {
+				$observation_input = $enforcement_input['observation'];
+				$observation       = $enforcement['observation_mode'] ?? $defaults['enforcement']['observation_mode'];
+
+				$observation['enabled'] = ! empty( $observation_input['enabled'] );
+				if ( array_key_exists( 'duration', $observation_input ) ) {
+					$duration               = max( 0, (int) $observation_input['duration'] );
+					$observation['duration'] = min( 30, $duration );
+				}
+
+				$now = current_time( 'timestamp' );
+				if ( $observation['enabled'] ) {
+					if ( ! empty( $current['enforcement']['observation_mode']['enabled'] ) && (int) ( $current['enforcement']['observation_mode']['expires_at'] ?? 0 ) > $now ) {
+						$observation['expires_at'] = (int) $current['enforcement']['observation_mode']['expires_at'];
+					} elseif ( $observation['duration'] > 0 ) {
+						$observation['expires_at'] = $now + ( $observation['duration'] * DAY_IN_SECONDS );
+					} else {
+						$observation['expires_at'] = 0;
+					}
+				} else {
+					$observation['expires_at'] = 0;
+				}
+
+				$enforcement['observation_mode'] = $observation;
+			}
+
+			$sanitized['enforcement'] = $enforcement;
+		}
+
+		if ( isset( $input['rate_limit'] ) && is_array( $input['rate_limit'] ) ) {
+			$rate_input = $input['rate_limit'];
+			$requests   = array_key_exists( 'requests', $rate_input ) ? (int) $rate_input['requests'] : ( $sanitized['rate_limit']['requests'] ?? $defaults['rate_limit']['requests'] );
+			$window     = array_key_exists( 'window', $rate_input ) ? (int) $rate_input['window'] : ( $sanitized['rate_limit']['window'] ?? $defaults['rate_limit']['window'] );
+			$sanitized['rate_limit'] = [
+				'requests' => max( 10, $requests ),
+				'window'   => max( 60, $window ),
+			];
+		}
+
+		if ( isset( $input['allow_list'] ) && is_array( $input['allow_list'] ) ) {
+			$allow_input = $input['allow_list'];
+			$sanitized['allow_list'] = [
+				'user_agents'  => $this->parse_multiline( $allow_input['user_agents'] ?? [] ),
+				'ip_addresses' => $this->parse_multiline( $allow_input['ip_addresses'] ?? [] ),
+			];
+		}
+
+		if ( isset( $input['block_list'] ) && is_array( $input['block_list'] ) ) {
+			$block_input = $input['block_list'];
+			$sanitized['block_list'] = [
+				'user_agents'  => $this->parse_multiline( $block_input['user_agents'] ?? [] ),
+				'ip_addresses' => $this->parse_multiline( $block_input['ip_addresses'] ?? [] ),
+			];
+		}
+
+		if ( isset( $input['robots'] ) && is_array( $input['robots'] ) ) {
+			$robots_input = $input['robots'];
+			$robots       = $sanitized['robots'] ?? $defaults['robots'];
+
+			$robots['manage']  = ! empty( $robots_input['manage'] );
+			$robots['ai_rules'] = ! empty( $robots_input['ai_rules'] );
+			if ( array_key_exists( 'content', $robots_input ) ) {
+				$robots['content'] = $this->strip_ai_block( sanitize_textarea_field( (string) $robots_input['content'] ) );
+			}
+
+			$sanitized['robots'] = $robots;
+		}
+
+		$selected_profile = $sanitized['profile']['selected'] ?? 'default';
+		$profile_def      = Profiles::get( $selected_profile );
+		$custom_profile   = false;
+
+		if ( $profile_def && empty( $sanitized['profile']['custom'] ) ) {
+			$allow_target = array_values( array_unique( array_map( 'sanitize_text_field', $profile_def['allow'] ) ) );
+			$block_target = array_values( array_unique( array_map( 'sanitize_text_field', $profile_def['block'] ) ) );
+			sort( $allow_target );
+			sort( $block_target );
+
+			$allow_current = $sanitized['allow_list']['user_agents'];
+			$block_current = $sanitized['block_list']['user_agents'];
+			sort( $allow_current );
+			sort( $block_current );
+
+			$threshold_match = (int) ( $sanitized['enforcement']['threshold'] ?? 0 ) === (int) ( $profile_def['threshold'] ?? 0 );
+			$rate_match      = (int) ( $sanitized['rate_limit']['requests'] ?? 0 ) === (int) ( $profile_def['rate_limit']['requests'] ?? 0 )
+				&& (int) ( $sanitized['rate_limit']['window'] ?? 0 ) === (int) ( $profile_def['rate_limit']['window'] ?? 0 );
+
+			if ( $allow_target !== $allow_current || $block_target !== $block_current || ! $threshold_match || ! $rate_match ) {
+				$custom_profile = true;
+			}
+
+			$sanitized['profile']['challenge_agents'] = array_values( array_unique( array_map( 'sanitize_text_field', $profile_def['challenge'] ) ) );
 		} else {
-			$expires_at = 0;
-		}
-	} else {
-		$expires_at = 0;
-	}
-
-	$sanitized['enforcement']['observation_mode'] = [
-		'enabled'    => $observation_enabled,
-		'duration'   => $duration,
-		'expires_at' => $expires_at,
-	];
-
-		$rate_input = $input['rate_limit'] ?? [];
-		$requests   = isset( $rate_input['requests'] ) ? (int) $rate_input['requests'] : ( $current['rate_limit']['requests'] ?? $defaults['rate_limit']['requests'] );
-		$window     = isset( $rate_input['window'] ) ? (int) $rate_input['window'] : ( $current['rate_limit']['window'] ?? $defaults['rate_limit']['window'] );
-		$sanitized['rate_limit'] = [
-			'requests' => max( 10, $requests ),
-			'window'   => max( 60, $window ),
-		];
-
-		$sanitized['allow_list'] = [
-			'user_agents'  => $this->parse_multiline( $input['allow_list']['user_agents'] ?? '' ),
-			'ip_addresses' => $this->parse_multiline( $input['allow_list']['ip_addresses'] ?? '' ),
-		];
-
-	$sanitized['block_list'] = [
-		'user_agents'  => $this->parse_multiline( $input['block_list']['user_agents'] ?? '' ),
-		'ip_addresses' => $this->parse_multiline( $input['block_list']['ip_addresses'] ?? '' ),
-	];
-
-	$selected_profile = $sanitized['profile']['selected'] ?? 'default';
-	$profile_def      = Profiles::get( $selected_profile );
-	$custom_profile   = false;
-
-	if ( $profile_def ) {
-		$allow_target = array_values( array_unique( array_map( 'sanitize_text_field', $profile_def['allow'] ) ) );
-		$block_target = array_values( array_unique( array_map( 'sanitize_text_field', $profile_def['block'] ) ) );
-		sort( $allow_target );
-		sort( $block_target );
-
-		$allow_current = $sanitized['allow_list']['user_agents'];
-		$block_current = $sanitized['block_list']['user_agents'];
-		sort( $allow_current );
-		sort( $block_current );
-
-		$threshold_match = (int) $sanitized['enforcement']['threshold'] === (int) $profile_def['threshold'];
-		$rate_match      = (int) $sanitized['rate_limit']['requests'] === (int) $profile_def['rate_limit']['requests']
-			&& (int) $sanitized['rate_limit']['window'] === (int) $profile_def['rate_limit']['window'];
-
-		if ( $allow_target !== $allow_current || $block_target !== $block_current || ! $threshold_match || ! $rate_match ) {
 			$custom_profile = true;
 		}
-		$sanitized['profile']['challenge_agents'] = array_values( array_unique( array_map( 'sanitize_text_field', $profile_def['challenge'] ) ) );
-	} else {
-		$custom_profile = true;
+
+		$sanitized['profile']['custom'] = $custom_profile;
+
+		$sanitized['analytics'] = $sanitized['analytics'] ?? $defaults['analytics'];
+		$sanitized['queue']     = $sanitized['queue'] ?? $defaults['queue'];
+		$sanitized['headers']   = $sanitized['headers'] ?? $defaults['headers'];
+
+		return $sanitized;
 	}
-
-	$sanitized['profile']['custom'] = $custom_profile;
-
-		$robots_input = $input['robots'] ?? [];
-		$manage       = ! empty( $robots_input['manage'] );
-		$ai_rules     = ! empty( $robots_input['ai_rules'] );
-		$content      = isset( $robots_input['content'] ) ? sanitize_textarea_field( $robots_input['content'] ) : ( $current['robots']['content'] ?? $defaults['robots']['content'] );
-
-		$sanitized['robots'] = [
-			'manage'  => $manage,
-			'ai_rules'=> $ai_rules,
-			'content' => $this->strip_ai_block( $content ),
-		];
-
-		// Keep analytics/queue/headers defaults intact unless explicitly changed.
-		if ( ! isset( $sanitized['analytics'] ) ) {
-			$sanitized['analytics'] = $defaults['analytics'];
-		}
-		if ( ! isset( $sanitized['queue'] ) ) {
-			$sanitized['queue'] = $defaults['queue'];
-		}
-		if ( ! isset( $sanitized['headers'] ) ) {
-			$sanitized['headers'] = $defaults['headers'];
-		}
-
-	return $sanitized;
-}
 
 	/**
 	 * Render the quick-start onboarding card.
@@ -1701,136 +1971,6 @@ if ( '' === $sanitized['policy']['payto'] ) {
 			]
 		);
 
-		static $printed_style = false;
-		if ( ! $printed_style ) {
-			$printed_style = true;
-			?>
-				<style>
-					.csh-ai-license-settings .csh-ai-page-lede { margin: 0.4em 0 1.6em; color: #50575e; font-size: 15px; max-width: 72ch; }
-					.csh-ai-settings-form { margin-top: 0; }
-					.csh-ai-settings-form .csh-ai-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px; align-items: start; }
-					.csh-ai-main { display: grid; gap: 32px; }
-					.csh-ai-panel { position: relative; background: #fff; border: 1px solid #dcdcde; border-radius: 10px; padding: 28px 32px; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06); border-top: 4px solid #e3e8ff; }
-					.csh-ai-panel-header { margin-bottom: 18px; padding-top: 8px; border-top: 1px solid #eef1f6; }
-					.csh-ai-panel-header h2 { margin: 0; font-size: 20px; line-height: 1.4; }
-					.csh-ai-panel-header p { margin: 8px 0 0; color: #50575e; max-width: 62ch; }
-					.csh-ai-panel .form-table { display: block; margin: 24px 0 0; }
-					.csh-ai-panel .form-table > tbody { display: block; }
-					.csh-ai-panel .form-table > tbody > tr { display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); gap: 18px; padding: 20px 0; border-top: 1px solid #edf0f3; }
-					.csh-ai-panel .form-table > tbody > tr:first-child { border-top: 0; padding-top: 0; }
-					.csh-ai-panel .form-table th { margin: 0; padding: 0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #50575e; font-weight: 600; }
-					.csh-ai-panel .form-table td { margin: 0; padding: 0; }
-					.csh-ai-panel .form-table td .description { margin-top: 8px; font-size: 13px; color: #4b5563; }
-					.csh-ai-panel .form-table fieldset { margin: 0; }
-					.csh-ai-actions { margin-top: 12px; display: flex; justify-content: flex-end; }
-					.csh-ai-actions .submit { margin: 0; }
-					.csh-ai-health-warning { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; border: 1px solid #f3b8b7; background: #fff5f5; }
-					.csh-ai-health-summary { margin-bottom: 20px; }
-					.csh-ai-health-summary .description { margin: 0; color: #374151; font-size: 13px; }
-					.csh-ai-sidebar { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 28px; }
-					.csh-ai-sidebar-card { padding: 22px 24px; border-radius: 12px; border: 1px solid #dce1f4; background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%); box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); }
-					.csh-ai-sidebar-card--health { background: #ffffff; border: 1px solid #e0e7ff; box-shadow: 0 10px 26px rgba(43, 80, 217, 0.12); }
-					.csh-ai-sidebar-card__header { margin-bottom: 18px; }
-					.csh-ai-sidebar-kicker { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(56, 88, 233, 0.12); color: #2b50d9; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-					.csh-ai-sidebar-card__header h2 { margin: 12px 0 8px; font-size: 18px; line-height: 1.4; }
-					.csh-ai-sidebar-card__header p { margin: 0; color: #4b5563; font-size: 13px; line-height: 1.6; }
-					.csh-ai-health-card { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
-					.csh-ai-health-card__item { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: start; }
-					.csh-ai-status-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px; font-weight: 600; font-size: 13px; }
-					.csh-ai-status-badge--ok { background: #e6f4ea; color: #1a7f37; }
-					.csh-ai-status-badge--warn { background: #fff7e6; color: #b45309; }
-					.csh-ai-status-badge--error { background: #fdecea; color: #d93025; }
-					.csh-ai-health-card__body { display: grid; gap: 4px; }
-					.csh-ai-health-card__title { font-weight: 600; color: #111827; font-size: 13px; }
-					.csh-ai-health-card__summary { font-size: 12px; color: #1f2937; }
-					.csh-ai-health-card__detail { font-size: 12px; color: #6b7280; }
-					.csh-ai-health-card__link { margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; color: #2b50d9; text-decoration: none; }
-					.csh-ai-health-card__link:hover { text-decoration: underline; }
-					.csh-ai-step-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
-					.csh-ai-step { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; }
-					.csh-ai-step-index { width: 32px; height: 32px; border-radius: 50%; background: #2b50d9; color: #fff; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 6px 12px rgba(43, 80, 217, 0.25); }
-					.csh-ai-step-body { display: grid; gap: 6px; }
-					.csh-ai-step-title { margin: 0; font-size: 15px; font-weight: 600; color: #111827; }
-					.csh-ai-step-summary { margin: 0; color: #4b5563; font-size: 13px; line-height: 1.6; }
-					.csh-ai-step-meta { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; color: #1f2937; }
-					.csh-ai-step-meta li { display: flex; gap: 6px; align-items: center; line-height: 1.4; }
-					.csh-ai-step .button-link { padding-left: 0; font-weight: 600; }
-					.csh-ai-summary-card { margin: 20px 0; padding: 18px 20px; border: 1px solid #e1e5f2; background: #fefeff; border-radius: 10px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06); }
-					.csh-ai-summary-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 0.4em; }
-					.csh-ai-summary-description { margin: 0 0 0.8em; color: #4b5563; }
-					.csh-ai-summary-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0.75em; }
-					.csh-ai-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.6; background: #ecf2ff; color: #2b50d9; }
-					.csh-ai-badge-profile { background: #f1f5ff; color: #1d4ed8; }
-					.csh-ai-badge-warning { background: #fff4e5; color: #8a5200; }
-					.csh-ai-badge-allow { background: #e6f4ea; color: #1a7f37; }
-					.csh-ai-badge-challenge { background: #edf2ff; color: #3853a4; }
-					.csh-ai-badge-block { background: #fdecea; color: #d93025; }
-					.csh-ai-badge-error { background: #fdecea; color: #b42318; }
-					.csh-ai-summary-meta { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: #1f2937; font-size: 12px; }
-					.csh-ai-summary-meta li { display: flex; gap: 6px; align-items: baseline; }
-					.csh-ai-summary-meta strong { min-width: 160px; font-weight: 600; color: #111827; }
-					.csh-ai-summary-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-					.csh-ai-agent-actions { display: flex; align-items: center; gap: 8px; }
-					.csh-ai-agent-form { margin: 0; }
-					.csh-ai-agent-action { width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; padding: 0; }
-					.csh-ai-agent-action__icon { font-size: 18px; }
-						.csh-ai-agent-table .button-danger { background: #d63638; border-color: #d63638; color: #fff; }
-						.csh-ai-agent-table .button-danger:hover { background: #a1282a; border-color: #a1282a; color: #fff; }
-						.csh-ai-queue-failures { margin: 8px 0 0; padding-left: 18px; color: #b91c1c; font-size: 12px; }
-						.csh-ai-queue-failures li { margin: 0 0 4px; }
-					.csh-ai-robots-preview { border: 1px solid #dcdcde; border-radius: 10px; overflow: hidden; background: #fff; }
-					.csh-ai-robots-preview summary { cursor: pointer; padding: 12px 16px; font-weight: 600; color: #2b50d9; list-style: none; outline: none; }
-					.csh-ai-robots-preview summary::-webkit-details-marker { display: none; }
-					.csh-ai-robots-preview__content { margin: 0; padding: 16px; background: #f8fafc; max-height: 260px; overflow: auto; font-family: Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
-					.csh-ai-stage-table, .csh-ai-agent-table { width: 100%; }
-					.csh-ai-stage-table th, .csh-ai-stage-table td,
-					.csh-ai-agent-table th, .csh-ai-agent-table td { padding: 10px 8px; }
-					@media (max-width: 1100px) {
-						.csh-ai-settings-form .csh-ai-layout { grid-template-columns: 1fr; gap: 24px; }
-						.csh-ai-sidebar { position: static; }
-					}
-					@media (max-width: 900px) {
-						.csh-ai-sidebar-card { padding: 18px 20px; }
-						.csh-ai-panel { padding: 24px 20px; }
-						.csh-ai-summary-meta strong { min-width: 120px; }
-					}
-					@media (max-width: 782px) {
-						.csh-ai-settings-form .csh-ai-layout { gap: 16px; }
-						.csh-ai-panel { padding: 20px 16px; }
-						.csh-ai-panel .form-table > tbody > tr { grid-template-columns: 1fr; }
-						.csh-ai-panel .form-table th { text-transform: none; letter-spacing: normal; font-size: 14px; }
-						.csh-ai-actions { justify-content: stretch; }
-						.csh-ai-actions .submit { width: 100%; }
-						.csh-ai-actions .submit .button { width: 100%; }
-						.csh-ai-sidebar-card { padding: 16px; }
-						.csh-ai-summary-meta strong { min-width: auto; }
-						.csh-ai-summary-meta li { flex-direction: column; gap: 2px; align-items: flex-start; }
-						.csh-ai-health-card__item { grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
-						.csh-ai-status-badge { width: 24px; height: 24px; font-size: 12px; }
-						.csh-ai-stage-table, .csh-ai-agent-table { font-size: 13px; }
-						.csh-ai-stage-table th, .csh-ai-stage-table td,
-						.csh-ai-agent-table th, .csh-ai-agent-table td { padding: 8px 6px; }
-						.csh-ai-stage-table select, .csh-ai-stage-table input[type="text"],
-						.csh-ai-stage-table input[type="number"] { font-size: 13px; min-height: 32px; }
-					}
-					@media (max-width: 600px) {
-						.csh-ai-panel { padding: 16px 12px; }
-						.csh-ai-panel-header h2 { font-size: 18px; }
-						.csh-ai-sidebar-card { padding: 14px 12px; }
-						.csh-ai-sidebar-card__header h2 { font-size: 16px; }
-						.csh-ai-step { grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
-						.csh-ai-step-index { width: 28px; height: 28px; font-size: 13px; }
-						.csh-ai-summary-card { padding: 14px 12px; }
-						.csh-ai-summary-badges { gap: 6px; }
-						.csh-ai-stage-table, .csh-ai-agent-table { font-size: 12px; }
-						.csh-ai-stage-table th, .csh-ai-stage-table td,
-						.csh-ai-agent-table th, .csh-ai-agent-table td { padding: 6px 4px; }
-						.csh-ai-agent-table { display: block; overflow-x: auto; }
-					}
-				</style>
-			<?php
-		}
-
 		?>
 		<div class="csh-ai-sidebar-card">
 			<div class="csh-ai-sidebar-card__header">
@@ -1851,7 +1991,7 @@ if ( '' === $sanitized['policy']['payto'] ) {
 								<?php endforeach; ?>
 							</ul>
 						<?php endif; ?>
-						<a class="button-link" href="#csh-ai-terms-panel"><?php esc_html_e( 'Adjust licensing terms', 'copyright-sh-ai-license' ); ?></a>
+					<a class="button-link" href="<?php echo esc_url( admin_url( 'options-general.php?page=' . self::PAGE_TERMS ) ); ?>"><?php esc_html_e( 'Adjust licensing terms', 'copyright-sh-ai-license' ); ?></a>
 					</div>
 				</li>
 				<li class="csh-ai-step">
@@ -1866,7 +2006,7 @@ if ( '' === $sanitized['policy']['payto'] ) {
 								<?php endforeach; ?>
 							</ul>
 						<?php endif; ?>
-						<a class="button-link" href="#csh-ai-enforcement-panel"><?php esc_html_e( 'Adjust enforcement settings', 'copyright-sh-ai-license' ); ?></a>
+					<a class="button-link" href="<?php echo esc_url( admin_url( 'options-general.php?page=' . self::PAGE_ENFORCEMENT ) ); ?>"><?php esc_html_e( 'Adjust enforcement settings', 'copyright-sh-ai-license' ); ?></a>
 					</div>
 				</li>
 				<li class="csh-ai-step">
@@ -1881,12 +2021,208 @@ if ( '' === $sanitized['policy']['payto'] ) {
 								<?php endforeach; ?>
 							</ul>
 						<?php endif; ?>
-						<a class="button-link" href="#csh-ai-enforcement-panel"><?php esc_html_e( 'Open crawler health', 'copyright-sh-ai-license' ); ?></a>
+					<a class="button-link" href="<?php echo esc_url( admin_url( 'options-general.php?page=' . self::PAGE_HEALTH ) ); ?>"><?php esc_html_e( 'Open crawler health', 'copyright-sh-ai-license' ); ?></a>
 					</div>
 				</li>
 			</ol>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Render usage overview metrics for the dashboard.
+	 */
+	private function render_usage_overview_card(): void {
+		$metrics        = $this->get_usage_overview_metrics();
+		$totals         = $metrics['totals'] ?? [];
+		$total_requests = isset( $metrics['total_requests'] ) ? (int) $metrics['total_requests'] : array_sum( $totals );
+
+		if ( empty( $totals ) || $total_requests <= 0 ) {
+			echo '<p>' . esc_html__( 'No crawler requests have been logged yet. Enable logging or connect your dashboard to view live licence demand.', 'copyright-sh-ai-license' ) . '</p>';
+			return;
+		}
+
+		echo '<p class="description">';
+		echo esc_html__( 'Breakdown of crawler requests by enforcement outcome.', 'copyright-sh-ai-license' );
+		echo '</p>';
+
+		echo '<ul class="csh-ai-usage-metrics">';
+		foreach ( $totals as $purpose => $count ) {
+			$label = $this->format_usage_label( (string) $purpose );
+			echo '<li>';
+			echo '<strong>' . esc_html( number_format_i18n( (int) $count ) ) . '</strong>';
+			echo '<span>' . esc_html( $label ) . '</span>';
+			echo '</li>';
+		}
+		echo '</ul>';
+
+		$window_label = $metrics['window'] ?? '';
+		$source_label = ( 'dashboard' === ( $metrics['source'] ?? 'local' ) )
+			? __( 'Synced from dashboard.copyright.sh', 'copyright-sh-ai-license' )
+			: __( 'Local log data', 'copyright-sh-ai-license' );
+		$updated_label = '';
+		if ( ! empty( $metrics['updated'] ) ) {
+			$updated_ts = strtotime( (string) $metrics['updated'] );
+			if ( $updated_ts ) {
+				$updated_label = sprintf(
+					/* translators: %s: formatted datetime. */
+					__( 'Updated %s', 'copyright-sh-ai-license' ),
+					$this->format_datetime( (int) $updated_ts )
+				);
+			}
+		}
+
+		echo '<div class="csh-ai-usage-meta">';
+		if ( $window_label ) {
+			echo '<span><span class="dashicons dashicons-clock"></span>' . esc_html( sprintf( __( 'Window: %s', 'copyright-sh-ai-license' ), $window_label ) ) . '</span>';
+		}
+		echo '<span><span class="dashicons dashicons-database-view"></span>' . esc_html( $source_label ) . '</span>';
+		if ( $updated_label ) {
+			echo '<span><span class="dashicons dashicons-update"></span>' . esc_html( $updated_label ) . '</span>';
+		}
+		echo '</div>';
+
+		if ( 'dashboard' !== ( $metrics['source'] ?? 'local' ) ) {
+			echo '<p class="description">';
+			echo esc_html__( 'Connect your dashboard account to sync revenue, payouts, and live policy analytics.', 'copyright-sh-ai-license' );
+			echo '</p>';
+		}
+	}
+
+	/**
+	 * Build usage metric dataset, preferring remote stats when available.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function get_usage_overview_metrics(): array {
+		$defaults = [
+			'totals'         => [],
+			'total_requests' => 0,
+			'window'         => __( 'Last 14 days', 'copyright-sh-ai-license' ),
+			'updated'        => current_time( 'mysql' ),
+			'source'         => 'local',
+		];
+
+		if ( $this->usage_queue ) {
+			$stats                      = $this->usage_queue->get_stats( 14 );
+			$purpose_counts             = $stats['purpose_counts'] ?? [];
+			$defaults['totals']         = $purpose_counts;
+			$defaults['total_requests'] = isset( $stats['total_requests'] ) ? (int) $stats['total_requests'] : array_sum( $purpose_counts );
+		}
+
+		$remote = $this->fetch_dashboard_usage_stats();
+		if ( ! empty( $remote ) ) {
+			return $remote;
+		}
+
+		return $defaults;
+	}
+
+	/**
+	 * Fetch remote usage stats when connected to the dashboard.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function fetch_dashboard_usage_stats(): array {
+		$account     = $this->options->get_account_status();
+		$token       = $account['token'] ?? '';
+		$connected   = ! empty( $account['connected'] );
+		$token_valid = $token && ( empty( $account['token_expires'] ) || (int) $account['token_expires'] > ( time() + 60 ) );
+
+		if ( ! $connected || ! $token_valid ) {
+			return [];
+		}
+
+		$account_key = $account['creator_id'] ?: ( $account['email'] ?? '' );
+		$cache_key   = 'csh_ai_dashboard_usage_stats';
+		$cached      = get_transient( $cache_key );
+		if ( is_array( $cached ) && ( $cached['account'] ?? '' ) === $account_key ) {
+			return $cached['payload'] ?? [];
+		}
+
+		$api_base = trailingslashit( apply_filters( 'csh_ai_api_base_url', 'https://api.copyright.sh/api/v1/' ) );
+		$endpoint = apply_filters( 'csh_ai_dashboard_stats_endpoint', $api_base . 'stats/wordpress-overview' );
+
+		$response = wp_remote_get(
+			$endpoint,
+			[
+				'timeout' => 12,
+				'headers' => [
+					'Authorization' => 'Bearer ' . $token,
+					'Accept'        => 'application/json',
+				],
+			]
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return [];
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( $code < 200 || $code >= 300 ) {
+			return [];
+		}
+
+		$body = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( isset( $body['data'] ) && is_array( $body['data'] ) ) {
+			$body = $body['data'];
+		}
+
+		$raw_totals = [];
+		if ( isset( $body['totals'] ) && is_array( $body['totals'] ) ) {
+			$raw_totals = $body['totals'];
+		} elseif ( isset( $body['breakdown'] ) && is_array( $body['breakdown'] ) ) {
+			$raw_totals = $body['breakdown'];
+		}
+
+		$totals = [];
+		foreach ( $raw_totals as $key => $value ) {
+			$totals[ (string) $key ] = (int) $value;
+		}
+
+		if ( empty( $totals ) ) {
+			return [];
+		}
+
+		$payload = [
+			'totals'         => $totals,
+			'total_requests' => array_sum( $totals ),
+			'window'         => $body['window'] ?? __( 'Last 7 days', 'copyright-sh-ai-license' ),
+			'updated'        => $body['updated_at'] ?? current_time( 'mysql' ),
+			'source'         => 'dashboard',
+		];
+
+		set_transient(
+			$cache_key,
+			[
+				'account' => $account_key,
+				'payload' => $payload,
+			],
+			5 * MINUTE_IN_SECONDS
+		);
+
+		return $payload;
+	}
+
+	/**
+	 * Human label for a usage bucket.
+	 *
+	 * @param string $purpose Purpose key.
+	 * @return string
+	 */
+	private function format_usage_label( string $purpose ): string {
+		switch ( $purpose ) {
+			case 'ai-crawl':
+				return __( 'Allowed requests', 'copyright-sh-ai-license' );
+			case 'ai-crawl-licensed':
+				return __( 'Licensed / paid requests', 'copyright-sh-ai-license' );
+			case 'ai-crawl-blocked':
+				return __( 'Blocked requests', 'copyright-sh-ai-license' );
+			case 'ai-crawl-challenge':
+				return __( 'Challenged requests', 'copyright-sh-ai-license' );
+			default:
+				return ucwords( str_replace( [ '-', '_' ], ' ', $purpose ) );
+		}
 	}
 
 	/**
@@ -1992,12 +2328,12 @@ if ( '' === $sanitized['policy']['payto'] ) {
 	 * @return array
 	 */
 	private function parse_multiline( $input ): array {
+		$items = [];
+
 		if ( is_array( $input ) ) {
 			$items = $input;
 		} elseif ( is_string( $input ) ) {
 			$items = preg_split( '/\r?\n/', $input );
-		} else {
-			$items = [];
 		}
 
 		$normalised = [];
@@ -2058,5 +2394,158 @@ if ( '' === $sanitized['policy']['payto'] ) {
 		}
 
 		return date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $timestamp );
+	}
+
+	private function render_quick_checks(): void {
+		$settings = $this->options->get_settings();
+		$hmac_configured = ! empty( $settings['hmac_secret'] );
+		$enforcement_enabled = ! empty( $settings['enforcement']['enabled'] );
+		$enforcement_label = $enforcement_enabled
+			? __( 'Enforcement is active', 'copyright-sh-ai-license' )
+			: __( 'Enforcement is disabled (log only)', 'copyright-sh-ai-license' );
+		$enforcement_status_class = $enforcement_enabled ? 'status-enabled' : 'status-disabled';
+		$hmac_label = $hmac_configured
+			? __( 'HMAC secret configured', 'copyright-sh-ai-license' )
+			: __( 'HMAC secret missing', 'copyright-sh-ai-license' );
+		$hmac_status_class = $hmac_configured ? 'status-enabled' : 'status-disabled';
+		$health_snapshot = $this->get_health_snapshot();
+		$queue_summary = $health_snapshot['queue']['summary_text'];
+		$queue_status_class = sprintf( 'status-%s', sanitize_html_class( $health_snapshot['queue']['state'] ) );
+		$terms_url       = admin_url( 'options-general.php?page=' . self::PAGE_TERMS );
+		$enforcement_url = admin_url( 'options-general.php?page=' . self::PAGE_ENFORCEMENT );
+		$health_url      = admin_url( 'options-general.php?page=' . self::PAGE_HEALTH );
+
+		?>
+		<div class="csh-ai-quick-checks">
+			<ul class="csh-ai-quick-list">
+				<li class="<?php echo esc_attr( $hmac_status_class ); ?>">
+					<strong><?php esc_html_e( '402 Secret', 'copyright-sh-ai-license' ); ?></strong>
+					<span><?php echo esc_html( $hmac_label ); ?></span>
+					<?php if ( ! $hmac_configured ) : ?>
+						<a class="button-link" href="<?php echo esc_url( $terms_url ); ?>"><?php esc_html_e( 'Add secret', 'copyright-sh-ai-license' ); ?></a>
+					<?php endif; ?>
+				</li>
+				<li class="<?php echo esc_attr( $enforcement_status_class ); ?>">
+					<strong><?php esc_html_e( 'Enforcement Mode', 'copyright-sh-ai-license' ); ?></strong>
+					<span><?php echo esc_html( $enforcement_label ); ?></span>
+					<a class="button-link" href="<?php echo esc_url( $enforcement_url ); ?>"><?php esc_html_e( 'Adjust enforcement', 'copyright-sh-ai-license' ); ?></a>
+				</li>
+				<li class="<?php echo esc_attr( $queue_status_class ); ?>">
+					<strong><?php esc_html_e( 'System Queue', 'copyright-sh-ai-license' ); ?></strong>
+					<span><?php echo esc_html( $queue_summary ); ?></span>
+					<a class="button-link" href="<?php echo esc_url( $health_url ); ?>"><?php esc_html_e( 'View details', 'copyright-sh-ai-license' ); ?></a>
+				</li>
+			</ul>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render shared sidebar panels used across settings pages.
+	 */
+	private function render_sidebar_panels(): void {
+		?>
+		<div class="csh-ai-layout__sidebar">
+			<div class="postbox csh-ai-card csh-ai-card--summary">
+				<div class="postbox-header">
+					<h2><?php esc_html_e( 'Current policy summary', 'copyright-sh-ai-license' ); ?></h2>
+				</div>
+				<div class="inside">
+					<?php $this->render_license_snapshot(); ?>
+				</div>
+			</div>
+			<div class="postbox csh-ai-card csh-ai-card--quick">
+				<div class="postbox-header">
+					<h2><?php esc_html_e( 'Quick checks', 'copyright-sh-ai-license' ); ?></h2>
+				</div>
+				<div class="inside">
+					<?php $this->render_quick_checks(); ?>
+				</div>
+			</div>
+			<?php $this->render_health_sidebar_card(); ?>
+			<?php do_action( 'csh_ai_license_sidebar' ); ?>
+		</div>
+		<?php
+	}
+
+
+	public function render_health_page(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		?>
+		<div class="wrap csh-ai-license-settings">
+			<h1><?php esc_html_e( 'Health & Logs', 'copyright-sh-ai-license' ); ?></h1>
+			<?php $this->render_nav_tabs( self::PAGE_HEALTH ); ?>
+			<p class="csh-ai-page-lede"><?php esc_html_e( 'Review crawler queues, cache status, and recent agent activity to diagnose issues.', 'copyright-sh-ai-license' ); ?></p>
+			<div class="csh-ai-layout">
+				<div class="csh-ai-layout__main">
+					<div class="postbox csh-ai-card csh-ai-card--wide">
+						<div class="postbox-header">
+							<h2><?php esc_html_e( 'Agent activity & queue diagnostics', 'copyright-sh-ai-license' ); ?></h2>
+						</div>
+						<div class="inside">
+							<?php $this->field_health_status(); ?>
+						</div>
+					</div>
+				</div>
+				<?php $this->render_sidebar_panels(); ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	public function section_health_overview(): void {
+		printf( '<p>%s</p>', esc_html__( 'High-level system indicators for caches and event queues.', 'copyright-sh-ai-license' ) );
+	}
+
+	private function render_health_card_list(): void {
+		$metrics = $this->get_health_snapshot();
+
+		$state_classes = [
+			'ok'      => 'status-ok',
+			'warning' => 'status-warning',
+			'error'   => 'status-error',
+		];
+
+		$cards = [
+			[
+				'label' => __( 'JWKS Cache', 'copyright-sh-ai-license' ),
+				'value' => sprintf(
+					/* translators: 1: JWKS cache status text, 2: Expiration descriptor. */
+					__( '%1$s, expires %2$s', 'copyright-sh-ai-license' ),
+					$metrics['jwks']['status_text'],
+					$metrics['jwks']['ttl']
+				),
+				'cls'   => $state_classes[ $metrics['jwks']['state'] ] ?? 'status-warning',
+			],
+			[
+				'label' => __( 'Bot Patterns', 'copyright-sh-ai-license' ),
+				'value' => sprintf(
+					/* translators: 1: Bot pattern cache status text, 2: Expiration descriptor. */
+					__( '%1$s, expires %2$s', 'copyright-sh-ai-license' ),
+					$metrics['patterns']['status_text'],
+					$metrics['patterns']['ttl']
+				),
+				'cls'   => $state_classes[ $metrics['patterns']['state'] ] ?? 'status-warning',
+			],
+			[
+				'label' => __( 'Queue Summary', 'copyright-sh-ai-license' ),
+				'value' => $metrics['queue']['summary_text'],
+				'cls'   => $state_classes[ $metrics['queue']['state'] ] ?? 'status-warning',
+			],
+		];
+
+		?>
+		<ul class="csh-ai-health-list">
+			<?php foreach ( $cards as $card ) : ?>
+				<li class="<?php echo esc_attr( $card['cls'] ); ?>">
+					<strong><?php echo esc_html( $card['label'] ); ?></strong>
+					<span><?php echo esc_html( $card['value'] ); ?></span>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+		<?php
 	}
 }

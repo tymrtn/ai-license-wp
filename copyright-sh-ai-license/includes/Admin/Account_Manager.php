@@ -382,7 +382,15 @@ class Account_Manager implements Bootable {
 	 * @return bool
 	 */
 	private function is_settings_screen( string $hook ): bool {
-		return in_array( $hook, [ 'settings_page_csh-ai-license', 'settings_page_csh-ai-license-network' ], true );
+		$allowed_hooks = [
+			'settings_page_csh-ai-license',
+			'settings_page_csh-ai-license-network',
+			'settings_page_csh-ai-license-terms',
+			'settings_page_csh-ai-license-enforcement',
+			'settings_page_csh-ai-license-health',
+		];
+
+		return in_array( $hook, $allowed_hooks, true );
 	}
 
 	/**
