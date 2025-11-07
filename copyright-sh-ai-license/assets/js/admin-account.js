@@ -6,16 +6,23 @@
 		return;
 	}
 
-	const feedback = container.querySelector('[data-feedback]');
+	const toast = container.querySelector('[data-feedback]');
+	const toastMessage = toast ? toast.querySelector('[data-feedback-message]') : null;
+	const toastDismiss = toast ? toast.querySelector('[data-feedback-dismiss]') : null;
 	const states = container.querySelectorAll('[data-state]');
 	const emailField = container.querySelector('input[type="email"]');
+	const statusIndicator = container.querySelector('[data-status-indicator]');
+	const statusLabel = statusIndicator ? statusIndicator.querySelector('[data-status-label]') : null;
+	const statusLabels = config.statusLabels || {};
 	let pendingCheckTimer = null;
+	let toastTimer = null;
 
 	function setStatus(status) {
 		container.dataset.status = status;
 		states.forEach((element) => {
 			element.hidden = element.dataset.state !== status;
 		});
+		updateStatusIndicator(status);
 	}
 
 	function setEmail(value) {
@@ -26,11 +33,34 @@
 	}
 
 	function showMessage(message, type = 'info') {
-		if (!feedback) {
+		if (!toast || !toastMessage) {
 			return;
 		}
-		feedback.textContent = message || '';
-		feedback.dataset.type = type;
+		if (toastTimer) {
+			window.clearTimeout(toastTimer);
+			toastTimer = null;
+		}
+		if (!message) {
+			toast.hidden = true;
+			toastMessage.textContent = '';
+			return;
+		}
+		toast.hidden = false;
+		toast.dataset.type = type;
+		toastMessage.textContent = message;
+		toastTimer = window.setTimeout(() => {
+			showMessage('');
+		}, 6000);
+	}
+
+	function updateStatusIndicator(status) {
+		if (!statusIndicator) {
+			return;
+		}
+		statusIndicator.dataset.status = status;
+		if (statusLabel) {
+			statusLabel.textContent = statusLabels[status] || statusLabels.disconnected || '';
+		}
 	}
 
 	function request(action, payload = {}) {
@@ -181,4 +211,10 @@
 
 	// Initialise visibility based on initial state.
 	setStatus(container.dataset.status || 'disconnected');
+
+	if (toastDismiss) {
+		toastDismiss.addEventListener('click', () => {
+			showMessage('');
+		});
+	}
 })();

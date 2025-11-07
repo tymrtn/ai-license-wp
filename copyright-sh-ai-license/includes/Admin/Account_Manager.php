@@ -56,6 +56,12 @@ class Account_Manager implements Bootable {
 			return;
 		}
 
+		$status_labels = [
+			'connected'    => __( 'Connected', 'copyright-sh-ai-license' ),
+			'pending'      => __( 'Awaiting verification', 'copyright-sh-ai-license' ),
+			'disconnected' => __( 'Not connected', 'copyright-sh-ai-license' ),
+		];
+
 		wp_enqueue_script(
 			'csh-ai-account',
 			CSH_AI_LICENSE_URL . 'assets/js/admin-account.js',
@@ -82,6 +88,7 @@ class Account_Manager implements Bootable {
 					'disconnected'   => __( 'Dashboard account disconnected.', 'copyright-sh-ai-license' ),
 					'genericError'   => __( 'Something went wrong. Please try again.', 'copyright-sh-ai-license' ),
 				],
+				'statusLabels' => $status_labels,
 			]
 		);
 	}
@@ -98,6 +105,12 @@ class Account_Manager implements Bootable {
 		$status        = $account['last_status'] ?? 'disconnected';
 		$email         = $account['email'] ?? '';
 		$dashboard_url = apply_filters( 'csh_ai_dashboard_url', 'https://dashboard.copyright.sh' );
+		$status_labels = [
+			'connected'    => __( 'Connected', 'copyright-sh-ai-license' ),
+			'pending'      => __( 'Awaiting verification', 'copyright-sh-ai-license' ),
+			'disconnected' => __( 'Not connected', 'copyright-sh-ai-license' ),
+		];
+		$status_label = $status_labels[ $status ] ?? $status_labels['disconnected'];
 		?>
 		<div
 			class="csh-ai-sidebar-card csh-ai-account-card"
@@ -109,7 +122,20 @@ class Account_Manager implements Bootable {
 			<p class="csh-ai-account-lede">
 				<?php esc_html_e( 'Sync with dashboard.copyright.sh to manage payouts, review crawl activity, and configure AI contracts.', 'copyright-sh-ai-license' ); ?>
 			</p>
-			<div class="csh-ai-account-feedback" role="status" aria-live="polite" data-feedback></div>
+			<div
+				class="csh-ai-account-status"
+				data-status-indicator
+				data-status="<?php echo esc_attr( $status ?: 'disconnected' ); ?>"
+			>
+				<span class="csh-ai-account-status__dot" aria-hidden="true" data-status-dot></span>
+				<span class="csh-ai-account-status__label" data-status-label><?php echo esc_html( $status_label ); ?></span>
+			</div>
+			<div class="csh-ai-account-feedback csh-ai-account-toast" role="status" aria-live="polite" data-feedback hidden>
+				<span data-feedback-message></span>
+				<button type="button" class="csh-ai-account-feedback__dismiss" data-feedback-dismiss>
+					<span class="screen-reader-text"><?php esc_html_e( 'Dismiss message', 'copyright-sh-ai-license' ); ?></span>
+				</button>
+			</div>
 
 			<div class="csh-ai-account-state" data-state="disconnected" <?php echo ( 'disconnected' === $status ? '' : 'hidden' ); ?>>
 				<p><?php esc_html_e( 'We will send a passwordless magic link to verify ownership of this site.', 'copyright-sh-ai-license' ); ?></p>
