@@ -1,2 +1,5 @@
 .DS_Store
 *.zip
+
+# Releases managed via WordPress.org SVN, not git
+releases/
