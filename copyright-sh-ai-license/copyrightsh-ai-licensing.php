@@ -3,9 +3,9 @@
  * Plugin Name: Copyright.sh – AI License
  * Plugin URI:  https://copyright.sh/
  * Description: Declare, customise and serve AI licence metadata (<meta name="ai-license"> tag and /ai-license.txt) for WordPress sites.
- * Version:     1.6.3
+ * Version:     1.7.0
  * Requires at least: 6.2
- * Tested up to: 6.8.2
+ * Tested up to: 6.9
  * Requires PHP: 7.4
  * Author:      Copyright.sh
  * Author URI:  https://copyright.sh
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Main plugin class.
  */
 class CSH_AI_Licensing_Plugin {
-    public const VERSION = '1.6.3';
+    public const VERSION = '1.7.0';
 
 	/**
 	 * Option name used to store global settings.

@@ -2,9 +2,9 @@
 Contributors:      copyrightsh
 Tags:              ai-license, copyright, robots-txt, content-licensing, chatgpt
 Requires at least: 6.2
-Tested up to:      6.8
+Tested up to:      6.9
 Requires PHP:      7.4
-Stable tag:        1.6.3
+Stable tag:        1.7.0
 License:           GPLv3 or later
 License URI:       https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -283,6 +283,18 @@ Look, AI companies are scraping your site right now. You have three options:
 
 This plugin handles options 2 and 3. Takes about 5 minutes to set up. Your call.
 
+= Does this protect my subdomains? =
+
+**Short answer: Only if they're running WordPress with this plugin installed.**
+
+This plugin can only protect content served by WordPress. Here's how different subdomain scenarios work:
+
+* **WordPress Multisite**: Plugin works, but requires activation and configuration on each site in the network separately.
+* **Separate WordPress installs** (e.g., blog.example.com and shop.example.com): Install the plugin on each WordPress instance independently.
+* **Non-WordPress subdomains** (e.g., app.example.com running Node.js): Cannot be protected by this plugin. You'll need to manually add `<meta name="ai-license">` tags and serve `/ai-license.txt` on those subdomains.
+
+**Why?** WordPress plugins can only modify content that WordPress serves. A plugin installed on `example.com` has no access to inject HTML or serve files for `subdomain.example.com` - they're separate HTTP origins.
+
 == Screenshots ==
 
 1. Dashboard connection - Connect your WordPress site to Copyright.sh for usage tracking and payments
@@ -294,6 +306,11 @@ This plugin handles options 2 and 3. Takes about 5 minutes to set up. Your call.
 7. Understanding AI stages - See how different AI use cases (train, infer, embed, tune) work
 
 == Changelog ==
+
+= 1.7.0 =
+* Compatibility: Tested with WordPress 6.9
+* Documentation: Added FAQ explaining subdomain protection limitations
+* No functional changes - compatibility and documentation update
 
 = 1.6.3 =
 * WordPress.org compliance: Reduced tags to maximum of 5 (removed perplexity, ai-licensing, content-protection, monetization)
