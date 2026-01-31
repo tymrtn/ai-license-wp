@@ -1,0 +1,20 @@
+# Files to exclude from WordPress.org distribution
+/.git
+/.github
+/tests
+/docs
+.DS_Store
+.gitignore
+.distignore
+*.md
+!readme.md
+!README.md
+!CHANGELOG.md
+phpunit.xml*
+.phpunit.result.cache
+composer.json
+composer.lock
+package.json
+package-lock.json
+Makefile
+*.bak

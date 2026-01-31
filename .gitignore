@@ -1,2 +1,18 @@
 .DS_Store
 *.zip
+
+# Internal documentation (never commit)
+ARCHITECTURAL_*.md
+DEPLOYMENT.md
+*_PLAN.md
+
+# Development artifacts
+tests/
+.phpunit.result.cache
+phpunit.xml*
+build/
+vendor/
+node_modules/
+
+# Backup files
+*.bak
